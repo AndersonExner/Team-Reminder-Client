@@ -1,4 +1,6 @@
-param([switch]$StartInTray, [switch]$CloseToTray)
+param([switch]$StartInTray, [switch]$CloseToTray,
+    [ValidateSet('Default', 'Notification', 'Exclamation', 'Critical', 'Silent', 'Custom')]
+    [string]$SoundKind = 'Default', [string]$AudioFile, [switch]$MissingSound)
 # Requires PowerShell 7.4+ (Start-Process -Environment) and a Debug/x64 build.
 # Uses an isolated database; never reads or changes the user's alarm database.
 $ErrorActionPreference = 'Stop'
@@ -6,12 +8,23 @@ $repoPath = Split-Path -Parent $PSScriptRoot
 $outputPath = Join-Path $repoPath 'src/clients/TeamReminder.Windows/bin/x64/Debug/net10.0-windows10.0.19041.0/win-x64'
 $exePath = Join-Path $outputPath 'TeamReminder.Windows.exe'
 if (-not (Test-Path -LiteralPath $exePath)) { throw 'Compile Debug/x64 antes de executar este teste.' }
-$existing = Get-Process -Name TeamReminder.Windows -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $exePath }
+$existing = Get-Process -Name TeamReminder.Windows -ErrorAction SilentlyContinue
 if ($existing) { throw 'Feche o aplicativo antes de executar este teste isolado.' }
 
 $testPath = Join-Path $repoPath ('artifacts/smoke/' + [Guid]::NewGuid().ToString())
 New-Item -ItemType Directory -Path $testPath -Force | Out-Null
 $databasePath = Join-Path $testPath 'alarms.db'
+$soundKinds = @{ Default = 0; Notification = 1; Exclamation = 2; Critical = 3; Silent = 4; Custom = 5 }
+$soundId = [Guid]::NewGuid()
+if ($SoundKind -eq 'Custom') {
+    if (-not $AudioFile -or -not (Test-Path -LiteralPath $AudioFile -PathType Leaf)) { throw 'Informe -AudioFile com um MP3/WAV válido.' }
+    if ([IO.Path]::GetExtension($AudioFile).ToLowerInvariant() -notin @('.mp3', '.wav')) { throw 'Informe arquivo MP3/WAV.' }
+    $soundsPath = Join-Path $testPath 'Sounds'
+    New-Item -ItemType Directory -Path $soundsPath -Force | Out-Null
+    if (-not $MissingSound) {
+        Copy-Item -LiteralPath $AudioFile -Destination (Join-Path $soundsPath ($soundId.ToString('N') + [IO.Path]::GetExtension($AudioFile).ToLowerInvariant()))
+    }
+}
 $logPath = Join-Path $testPath 'delivery.jsonl'
 Add-Type -Path (Join-Path $outputPath 'LiteDB.dll')
 $due = [DateTime]::UtcNow.AddSeconds(3)
@@ -24,6 +37,11 @@ try {
     $document['ScheduledAtUtc'] = [LiteDB.BsonValue]::new($due)
     $document['CreatedAtUtc'] = [LiteDB.BsonValue]::new([DateTime]::UtcNow)
     $document['TimeZoneId'] = [LiteDB.BsonValue]::new([TimeZoneInfo]::Local.Id)
+    $document['SoundKind'] = [LiteDB.BsonValue]::new([int]$soundKinds[$SoundKind])
+    if ($SoundKind -eq 'Custom') {
+        $document['SoundFileId'] = [LiteDB.BsonValue]::new($soundId)
+        $document['SoundFileName'] = [LiteDB.BsonValue]::new([IO.Path]::GetFileName($AudioFile))
+    }
     $null = $database.GetCollection('alarms').Insert($document)
 } finally { $database.Dispose() }
 
@@ -55,6 +73,8 @@ try {
     $lines = @(Get-Content -LiteralPath $logPath | Where-Object { $_.Trim() })
     if ($lines.Count -ne 1) { throw ('Esperado um disparo, recebidos: ' + $lines.Count) }
     $delivery = $lines[0] | ConvertFrom-Json
+    if ([bool]$delivery.SoundFallback -ne [bool]$MissingSound) { throw 'Uso de fallback difere do esperado.' }
+    if ($delivery.SoundKind -ne $soundKinds[$SoundKind]) { throw 'Som entregue difere do salvo no banco.' }
     if (-not $delivery.SoundAccepted) { throw 'O Windows não aceitou a reprodução do áudio.' }
     $delivery | Format-List
     if ($StartInTray -or $CloseToTray) {

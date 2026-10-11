@@ -1,0 +1,11 @@
+# Validação manual
+- Criar um alarme com cada evento Windows, ouvir/parar e confirmar o disparo.
+- Alterar o esquema de sons do Windows e testar evento silencioso.
+- Importar WAV e MP3, ouvir, salvar, mover original, reiniciar e confirmar disparo.
+- Rejeitar áudio corrompido, extensão diferente, arquivo vazio ou acima de 20 MiB.
+- Cancelar seletor e modal sem alterar alarme existente.
+- Mudar som padrão e verificar alarmes que seguem o padrão, inclusive registros antigos.
+- Apagar uma cópia gerenciada e verificar fallback com aviso visual.
+- Excluir/trocar som de alarme e verificar limpeza preservando arquivo ainda usado pelo padrão ou outro alarme.
+- Abrir prévia, disparar alarme real e fechar modal: prévia para, alarme real permanece.
+- Atualizar via instalador e verificar preservação do banco, preferência e arquivos.

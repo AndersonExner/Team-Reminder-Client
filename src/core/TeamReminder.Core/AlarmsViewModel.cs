@@ -40,6 +40,7 @@ public sealed class AlarmRow(Alarm alarm, TimeProvider clock) : ObservableObject
     public Alarm Alarm { get; } = alarm;
     public string Title => Alarm.Title;
     public string Schedule => (Alarm.DueAtUtc ?? Alarm.ScheduledAtUtc).ToLocalTime().ToString("dd/MM/yyyy HH:mm");
+    public string SoundText => Alarm.Sound.Label;
     public string RecurrenceText => RecurrenceCalendar.Describe(Alarm.Recurrence, Alarm.Days);
     public string Status => Alarm.DueAtUtc is not { } due ? "Disparado"
         : due <= clock.GetUtcNow().UtcDateTime ? "Aguardando disparo" : "Agendado";
@@ -58,6 +59,10 @@ public sealed class AlarmsViewModel : ObservableObject
     private Alarm? editingAlarm;
     private bool busy, loaded;
     private RecurrenceKind recurrence;
+    private AlarmSound sound = AlarmSound.Default;
+    private string soundError = "";
+    public AlarmSound Sound { get => sound; set => Set(ref sound, value); }
+    public string SoundError { get => soundError; private set => Set(ref soundError, value); }
     private string recurrenceError = "", alertText = "", notificationStatus = "";
     private AlarmScheduler? scheduler;
     private EarlyReminderScheduler? earlyScheduler;
@@ -174,9 +179,10 @@ public sealed class AlarmsViewModel : ObservableObject
         Title = editingAlarm.Title;
         SelectedDate = new DateTimeOffset(DateTime.SpecifyKind(local, DateTimeKind.Unspecified), localZone.GetUtcOffset(local));
         SelectedTime = local.TimeOfDay;
+        Sound = editingAlarm.Sound;
         Recurrence = editingAlarm.Recurrence;
         foreach (var day in DayOptions) day.IsSelected = editingAlarm.Days.HasFlag(day.Day);
-        TitleError = ScheduleError = RecurrenceError = Message = "";
+        TitleError = ScheduleError = RecurrenceError = SoundError = Message = "";
         NotifyMode();
     }
 
@@ -205,9 +211,10 @@ public sealed class AlarmsViewModel : ObservableObject
         editingAlarm = null;
         var localNow = Today();
         Title = ""; SelectedDate = localNow; SelectedTime = new TimeSpan(localNow.Hour, localNow.Minute, 0);
+        Sound = AlarmSound.Default;
         Recurrence = RecurrenceKind.Once;
         foreach (var day in DayOptions) day.IsSelected = false;
-        TitleError = ScheduleError = RecurrenceError = "";
+        TitleError = ScheduleError = RecurrenceError = SoundError = "";
         NotifyMode();
     }
 
@@ -245,14 +252,14 @@ public sealed class AlarmsViewModel : ObservableObject
     {
         if (!CanEdit) return false;
         SetBusy(true);
-        TitleError = ScheduleError = RecurrenceError = Message = "";
+        TitleError = ScheduleError = RecurrenceError = SoundError = Message = "";
         try
         {
             var editing = editingAlarm;
             var days = DayOptions.Where(day => day.IsSelected).Aggregate(WeekDays.None, (value, day) => value | day.Day);
             var alarm = editing is null
-                ? await service.CreateAsync(Title, SelectedDate?.Date, SelectedTime, zone(), Recurrence, days)
-                : await service.UpdateAsync(editing, Title, SelectedDate?.Date, SelectedTime, zone(), Recurrence, days);
+                ? await service.CreateAsync(Title, SelectedDate?.Date, SelectedTime, zone(), Recurrence, days, Sound)
+                : await service.UpdateAsync(editing, Title, SelectedDate?.Date, SelectedTime, zone(), Recurrence, days, Sound);
             ReplaceRows(Alarms.Select(row => row.Alarm).Where(a => a.Id != alarm.Id).Append(alarm).ToArray());
             ResetForm();
             Message = editing is null ? "Alarme salvo." : "Alarme atualizado.";
@@ -261,6 +268,7 @@ public sealed class AlarmsViewModel : ObservableObject
         catch (AlarmValidationException ex)
         {
             if (ex.Field == "Title") TitleError = ex.Message;
+            else if (ex.Field == "Sound") SoundError = ex.Message;
             else if (ex.Field == "Recurrence") RecurrenceError = ex.Message;
             else ScheduleError = ex.Message;
         }

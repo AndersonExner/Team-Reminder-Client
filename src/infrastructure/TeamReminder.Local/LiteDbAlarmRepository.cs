@@ -121,6 +121,7 @@ public sealed class LiteDbAlarmRepository(string filePath) : IAlarmRepository, I
 
     private static Alarm ToAlarm(AlarmDocument a) => new(a.Id, a.Title, Utc(a.ScheduledAtUtc), Utc(a.CreatedAtUtc), a.TimeZoneId)
     {
+        Sound = new AlarmSound(a.SoundKind, a.SoundFileId, a.SoundFileName),
         Recurrence = a.Recurrence, Days = a.Days,
         NextOccurrenceUtc = Utc(a.NextOccurrenceUtc), LastDeliveredOccurrenceUtc = Utc(a.LastDeliveredOccurrenceUtc)
     };
@@ -128,6 +129,7 @@ public sealed class LiteDbAlarmRepository(string filePath) : IAlarmRepository, I
     private static AlarmDocument ToDocument(Alarm a) => new()
     {
         Id = a.Id, Title = a.Title, ScheduledAtUtc = a.ScheduledAtUtc, CreatedAtUtc = a.CreatedAtUtc,
+        SoundKind = a.Sound.Kind, SoundFileId = a.Sound.FileId, SoundFileName = a.Sound.FileName,
         TimeZoneId = a.TimeZoneId, Recurrence = a.Recurrence, Days = a.Days,
         NextOccurrenceUtc = a.NextOccurrenceUtc, LastDeliveredOccurrenceUtc = a.LastDeliveredOccurrenceUtc
     };
@@ -149,6 +151,9 @@ public sealed class LiteDbAlarmRepository(string filePath) : IAlarmRepository, I
         public DateTime ScheduledAtUtc { get; set; }
         public DateTime CreatedAtUtc { get; set; }
         public string TimeZoneId { get; set; } = "";
+        public AlarmSoundKind SoundKind { get; set; }
+        public Guid? SoundFileId { get; set; }
+        public string? SoundFileName { get; set; }
         public RecurrenceKind Recurrence { get; set; }
         public WeekDays Days { get; set; }
         public DateTime? NextOccurrenceUtc { get; set; }

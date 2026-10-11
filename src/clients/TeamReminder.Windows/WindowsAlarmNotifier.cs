@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using System.Security;
 using Microsoft.Windows.AppNotifications;
 using TeamReminder.Core;
@@ -6,7 +5,7 @@ using TeamReminder.Core;
 namespace TeamReminder.Windows;
 
 public sealed class WindowsAlarmNotifier(Action<AlarmDelivery> reportAlert,
-    Action<string> reportStatus, Action activateWindow) : IAlarmNotifier, IDisposable
+    Action<string> reportStatus, Action activateWindow, AlarmSoundPlayer soundPlayer) : IAlarmNotifier, IDisposable
 {
     private bool registered;
 
@@ -26,11 +25,11 @@ public sealed class WindowsAlarmNotifier(Action<AlarmDelivery> reportAlert,
 
     private void OnNotificationInvoked(AppNotificationManager sender, AppNotificationActivatedEventArgs args) => activateWindow();
 
-    public Task NotifyAsync(AlarmDelivery delivery)
+    public async Task NotifyAsync(AlarmDelivery delivery)
     {
-        var soundFile = Path.Combine(AppContext.BaseDirectory, "Assets", "alarm.wav");
-        var soundAccepted = PlaySound(soundFile, IntPtr.Zero, 0x00020000 | 0x0001 | 0x0002);
-        if (!soundAccepted) reportStatus("Não foi possível reproduzir o som. Confira o áudio; o aviso permanece nesta janela.");
+        var soundAccepted = false;
+        try { soundAccepted = await soundPlayer.PlayAsync(delivery.Alarm.Sound, isAlarm: true); }
+        catch (Exception) { reportStatus("Não foi possível reproduzir o áudio; o aviso visual continua disponível."); }
         uint notificationId = 0;
         if (registered)
         {
@@ -61,6 +60,7 @@ public sealed class WindowsAlarmNotifier(Action<AlarmDelivery> reportAlert,
                 {
                     delivery.Alarm.Id, delivery.Alarm.Title, delivery.OccurrenceUtc,
                     DeliveredAtUtc = DateTime.UtcNow, SoundAccepted = soundAccepted,
+                    SoundKind = (int)delivery.Alarm.Sound.Kind, SoundFallback = soundPlayer.LastPlaybackUsedFallback,
                     NotificationId = notificationId, NotificationRegistered = registered
                 }) + Environment.NewLine);
             }
@@ -68,12 +68,7 @@ public sealed class WindowsAlarmNotifier(Action<AlarmDelivery> reportAlert,
             catch (UnauthorizedAccessException) { /* Delivery is already accepted. */ }
         }
 #endif
-        return Task.CompletedTask;
     }
-
-    [DllImport("winmm.dll", CharSet = CharSet.Unicode)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool PlaySound(string sound, IntPtr module, uint flags);
 
     public void Dispose()
     {
