@@ -10,6 +10,7 @@ public partial class App : Application
     private LiteDbAlarmRepository? repository;
     private MainWindow? window;
     private WindowsAlarmNotifier? notifier;
+    private AlarmSoundPlayer? soundPlayer;
     private readonly CancellationTokenSource activationCancellation = new();
 
     public App() => InitializeComponent();
@@ -44,9 +45,18 @@ public partial class App : Application
         repository = new LiteDbAlarmRepository(dataPath);
         var clock = TimeProvider.System;
         var viewModel = new AlarmsViewModel(new AlarmService(repository, clock), clock);
-        window = new MainWindow(viewModel);
+        var localRoot = Path.GetDirectoryName(Path.GetDirectoryName(dataPath)!)!;
+#if DEBUG
+        if (!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("TEAMREMINDER_TEST_DATA_FILE")))
+            localRoot = Path.GetDirectoryName(Path.GetFullPath(dataPath))!;
+#endif
+        var sounds = new LocalSoundLibrary(localRoot);
+        await sounds.LoadDefaultAsync();
+        window = new MainWindow(viewModel, sounds, repository);
+        soundPlayer = new AlarmSoundPlayer(sounds, text => window.DispatcherQueue.TryEnqueue(() => viewModel.SetNotificationStatus(text)));
+        soundPlayer.AlarmStarting += window.StopSoundPreviews;
         notifier = new WindowsAlarmNotifier(viewModel.ReportAlert, viewModel.SetNotificationStatus,
-            () => window.DispatcherQueue.TryEnqueue(window.Restore));
+            () => window.DispatcherQueue.TryEnqueue(window.Restore), soundPlayer);
         viewModel.ConfigureScheduler(new AlarmScheduler(repository, notifier, clock));
         notifier.Initialize();
         window.ConfigureEarlyReminders(repository, repository, clock);
@@ -54,6 +64,7 @@ public partial class App : Application
         {
             activationCancellation.Cancel();
             notifier.Dispose();
+            soundPlayer.Dispose();
             repository.Dispose();
             instanceMutex.ReleaseMutex();
             instanceMutex.Dispose();
@@ -64,6 +75,9 @@ public partial class App : Application
         await window.StartAsync();
         _ = ListenForActivationAsync("TeamReminder.Activation." + sid, activationCancellation.Token);
 #if DEBUG
+        var audioReport = Environment.GetEnvironmentVariable("TEAMREMINDER_TEST_AUDIO_REPORT");
+        if (!string.IsNullOrEmpty(audioReport) && !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("TEAMREMINDER_TEST_DATA_FILE")))
+            await AudioSmokeProbe.RunAsync(sounds, audioReport, WinRT.Interop.WindowNative.GetWindowHandle(window), viewModel);
         var windowLog = Environment.GetEnvironmentVariable("TEAMREMINDER_TEST_WINDOW_LOG");
         if (!string.IsNullOrEmpty(windowLog))
         {

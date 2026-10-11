@@ -1,6 +1,7 @@
 <ContentDialog x:Class="TeamReminder.Windows.AlarmEditorDialog"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:TeamReminder.Windows"
     Title="{Binding FormTitle}" PrimaryButtonText="{Binding SaveLabel}" SecondaryButtonText="Cancelar"
     DefaultButton="Primary" IsPrimaryButtonEnabled="{Binding CanEdit}" IsSecondaryButtonEnabled="{Binding CanEdit}"
     PrimaryButtonClick="Save_Click" Closing="Dialog_Closing" Opened="Dialog_Opened">
@@ -19,6 +20,8 @@
                                     <ItemsControl.ItemTemplate><DataTemplate><CheckBox Content="{Binding Label}" MinWidth="140" IsChecked="{Binding IsSelected, Mode=TwoWay}" /></DataTemplate></ItemsControl.ItemTemplate>
                                 </ItemsControl>
                                 <TextBlock Text="{Binding RecurrenceError}" Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap" />
+            <local:SoundPickerControl x:Name="SoundEditor" />
+            <TextBlock Text="{Binding SoundError}" Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap" />
             <TextBlock Text="Para tocar uma vez, escolha uma data e um horário futuros." FontSize="12"
                 TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
             <TextBlock Text="{Binding Message}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />

@@ -1,0 +1,25 @@
+<UserControl x:Class="TeamReminder.Windows.SoundPickerControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <StackPanel Spacing="8">
+        <ComboBox x:Name="KindPicker" Header="Som" HorizontalAlignment="Stretch" SelectionChanged="Kind_Changed">
+            <ComboBoxItem Content="Usar padrão do aplicativo" />
+            <ComboBoxItem Content="Notificação do Windows" />
+            <ComboBoxItem Content="Exclamação do Windows" />
+            <ComboBoxItem Content="Erro crítico do Windows" />
+            <ComboBoxItem Content="Sem som" />
+            <ComboBoxItem Content="Arquivo personalizado" />
+        </ComboBox>
+        <StackPanel x:Name="FilePanel" Spacing="6" Visibility="Collapsed">
+            <Button x:Name="ChooseButton" Content="Selecionar MP3 ou WAV" Click="Choose_Click" />
+            <TextBlock x:Name="FileNameLabel" TextWrapping="Wrap" />
+            <TextBlock Text="Até 20 MiB. O app guarda uma cópia do áudio." FontSize="12" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button x:Name="PreviewButton" Content="Ouvir" Click="Preview_Click" />
+            <Button x:Name="StopButton" Content="Parar" Click="Stop_Click" />
+        </StackPanel>
+        <TextBlock Text="Os sons do Windows seguem o esquema de sons deste computador." FontSize="12" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+        <TextBlock x:Name="SoundStatus" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+    </StackPanel>
+</UserControl>

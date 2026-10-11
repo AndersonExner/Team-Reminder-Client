@@ -1,12 +1,16 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using TeamReminder.Core;
+using TeamReminder.Local;
 
 namespace TeamReminder.Windows;
 
 public sealed partial class MainWindow : Window
 {
     private readonly AlarmsViewModel viewModel;
+    private readonly LocalSoundLibrary sounds;
+    private readonly IAlarmRepository repository;
+    private AlarmEditorDialog? currentEditor;
     private readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromSeconds(1) };
     private bool initialized;
     private bool themeReady;
@@ -24,10 +28,14 @@ public sealed partial class MainWindow : Window
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "TeamReminder", "Settings", "theme.txt");
 
-    public MainWindow(AlarmsViewModel viewModel)
+    public MainWindow(AlarmsViewModel viewModel, LocalSoundLibrary sounds, IAlarmRepository repository)
     {
         InitializeComponent();
         this.viewModel = viewModel;
+        this.sounds = sounds;
+        this.repository = repository;
+        DefaultSoundEditor.Configure(sounds, WinRT.Interop.WindowNative.GetWindowHandle(this), sounds.DefaultSound, allowDefault: false);
+        DefaultSoundEditor.SelectionChanged += DefaultSound_Changed;
         Root.DataContext = viewModel;
         var theme = ElementTheme.Light;
         try
@@ -69,7 +77,7 @@ public sealed partial class MainWindow : Window
             await viewModel.ProcessEarlyAsync();
             tray?.Update();
         };
-        Closed += (_, _) => { timer.Stop(); tray?.Dispose(); tray = null; };
+        Closed += (_, _) => { DefaultSoundEditor.Dispose(); currentEditor?.DisposeSoundEditor(); timer.Stop(); tray?.Dispose(); tray = null; };
     }
 
     public void ConfigureEarlyReminders(IAlarmRepository repository, IEarlyReminderReceiptStore receipts, TimeProvider clock)
@@ -95,6 +103,55 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         { AdvanceStatus.Text = "Preferência aplicada nesta sessão, mas não foi possível salvá-la."; }
+    }
+
+    public void StopSoundPreviews()
+    {
+        DefaultSoundEditor.StopPreview();
+        currentEditor?.StopPreview();
+    }
+
+    private async void DefaultSound_Changed(object? sender, EventArgs e)
+    {
+        var selection = DefaultSoundEditor.Selection;
+        if (!selection.IsValid)
+        {
+            DefaultSoundStatus.Text = "Selecione um arquivo para aplicar o novo padrão.";
+            return;
+        }
+        DefaultSoundEditor.IsEnabled = false;
+        try
+        {
+            await sounds.SaveDefaultAsync(selection);
+            DefaultSoundStatus.Text = "Som padrão salvo neste computador.";
+        }
+        catch (Exception)
+        {
+            DefaultSoundEditor.SetSelection(sounds.DefaultSound);
+            DefaultSoundStatus.Text = "Não foi possível salvar. O padrão anterior foi mantido.";
+        }
+        finally { DefaultSoundEditor.IsEnabled = true; }
+        await CleanSoundsAsync(DefaultSoundEditor.TakeImportedIds());
+    }
+
+    private async void DeleteAlarm_Click(object sender, RoutedEventArgs e)
+    {
+        await viewModel.DeleteSelectedAsync();
+        await CleanSoundsAsync();
+    }
+
+    private async Task CleanSoundsAsync(IEnumerable<Guid>? releaseImports = null)
+    {
+        if (DefaultSoundEditor.IsBusy || dialogOpen) return;
+        try
+        {
+            // A fresh successful read is required; never clean from an empty UI after a read failure.
+            var alarms = await repository.ListAsync();
+            if (DefaultSoundEditor.IsBusy || dialogOpen) return;
+            await sounds.CleanupAsync(alarms.Select(a => a.Sound).Append(DefaultSoundEditor.Selection), releaseImports);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        catch (Exception) { /* Preserve all files when the database cannot be read. */ }
     }
 
     public bool EnableTray()
@@ -137,6 +194,7 @@ public sealed partial class MainWindow : Window
         if (dialogOpen || !viewModel.CanEdit) return;
         if (edit && !viewModel.CanEditSelected) return;
         dialogOpen = true;
+        IReadOnlyList<Guid> importedIds = [];
         try
         {
             if (Root.XamlRoot is null)
@@ -149,17 +207,20 @@ public sealed partial class MainWindow : Window
             }
             if (edit) viewModel.BeginEditSelected();
             else viewModel.BeginCreate();
-            var dialog = new AlarmEditorDialog(viewModel)
+            var dialog = new AlarmEditorDialog(viewModel, sounds, WinRT.Interop.WindowNative.GetWindowHandle(this))
             {
                 XamlRoot = Root.XamlRoot,
                 RequestedTheme = Root.RequestedTheme
             };
-            await dialog.ShowAsync();
+            currentEditor = dialog;
+            try { await dialog.ShowAsync(); }
+            finally { importedIds = dialog.TakeImportedIds(); dialog.DisposeSoundEditor(); currentEditor = null; }
         }
         finally
         {
             viewModel.DiscardForm();
             dialogOpen = false;
+            await CleanSoundsAsync(importedIds);
         }
     }
     private void StartupToggle_Toggled(object sender, RoutedEventArgs e)
@@ -224,6 +285,7 @@ public sealed partial class MainWindow : Window
         if (initialized) return;
         initialized = true;
         await viewModel.LoadAsync();
+        await CleanSoundsAsync();
         await viewModel.ProcessDueAsync();
         timer.Start();
     }

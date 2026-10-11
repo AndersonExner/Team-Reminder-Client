@@ -45,9 +45,27 @@ Fechar a janela mantém o app ativo na bandeja. Use Sair no menu do ícone para 
 Ao reabrir ou retomar após suspensão, um alarme atrasado emite um aviso;
 recorrentes avançam para a próxima ocorrência futura, sem reproduzir todos os atrasados.
 
-O alerta inclui som curto, aviso na janela e notificação Windows.
+O alerta inclui o som escolhido, aviso na janela e notificação Windows.
 Se o canal Windows estiver indisponível, o aplicativo informa e mantém som/aviso local.
 O Windows controla volume, mudo e permissões de notificação.
+
+## Som dos alarmes
+
+No modal de criação/edição, escolha **Usar padrão do aplicativo**, **Notificação do Windows**,
+**Exclamação do Windows**, **Erro crítico do Windows**, **Sem som** ou **Arquivo personalizado**.
+Use **Selecionar MP3 ou WAV** para importar áudio de até 20 MiB; **Ouvir** e **Parar** controlam a prévia.
+Configurações permite alterar o padrão, inclusive para um arquivo personalizado ou silêncio.
+O padrão inicial é Notificação do Windows. Alarmes antigos seguem o padrão automaticamente.
+
+Sons do Windows respeitam seu esquema de sons; um evento sem áudio permanece silencioso.
+MP3/WAV são validados e copiados para `%LOCALAPPDATA%\TeamReminder\Sounds` com identificadores próprios.
+Mover ou excluir o original não afeta o alarme. LiteDB guarda a escolha e a referência da cópia;
+o padrão fica em `Settings\default-sound.json`. Ao fazer backup, preserve banco, Sounds e Settings.
+Cópias sem referências são removidas após leitura bem-sucedida do banco, ao encerrar o editor,
+excluir um alarme ou alterar o padrão. Arquivos em importação são protegidos até finalizar a edição.
+Se a cópia estiver ausente ou ilegível, o app informa e tenta Notificação do Windows.
+O áudio toca uma vez; para alarmes simultâneos, o último som iniciado pode substituir o anterior,
+e todos os avisos visuais continuam disponíveis. Uma prévia é interrompida pelo disparo real.
 
 ## Dados locais
 
@@ -67,7 +85,7 @@ LiteDB é a fonte oficial no MVP local. O servidor terá repositório próprio n
  dotnet test tests/TeamReminder.Local.Tests
 ```
 
-84 testes de regras/ViewModel/calendário/motores e 15 de persistência real.
+87 testes de regras/ViewModel/calendário/motores e 30 de persistência e biblioteca de sons.
 Os testes usam relógio controlado e bancos temporários; não alteram alarmes do usuário.
 
 Para verificar envio de áudio/notificação, persistência e reinício no executável Debug/x64,
@@ -77,8 +95,19 @@ com o app fechado e PowerShell 7.4 ou superior:
  ./scripts/Test-AlarmDelivery.ps1
 ```
 
+Para testar os decodificadores Windows, importação e reprodução real de WAV/MP3, fallback
+e recursos XAML do modal, também com o app encerrado:
+
+```powershell
+ ./scripts/Test-AlarmSounds.ps1
+ ./scripts/Test-AlarmDelivery.ps1 -StartInTray -SoundKind Custom -AudioFile C:\caminho\som.mp3
+ ./scripts/Test-AlarmDelivery.ps1 -SoundKind Silent
+```
+
+Esses testes usam banco e pastas de áudio isolados. Os relatórios ficam em artifacts.
+
 Esse teste emite um aviso real com som, usando banco isolado em artifacts/smoke.
-Os dois parâmetros de ambiente de diagnóstico utilizados pelo script só existem no build Debug.
+Os parâmetros de ambiente de diagnóstico utilizados pelos scripts só existem no build Debug.
 Aceitação da API de áudio não comprova que o volume do dispositivo esteja audível.
 
 ## Organização e SDD
@@ -94,6 +123,7 @@ Aceitação da API de áudio não comprova que o volume do dispositivo esteja au
 | --- | --- | --- | --- |
 | 001 - cadastro/persistência | [spec](docs/specs/001-local-alarms/spec.md) | [plan](docs/specs/001-local-alarms/plan.md) | [tasks](docs/specs/001-local-alarms/tasks.md) |
 | 002 - edição/exclusão | [spec](docs/specs/002-edit-delete-alarms/spec.md) | [plan](docs/specs/002-edit-delete-alarms/plan.md) | [tasks](docs/specs/002-edit-delete-alarms/tasks.md) |
+| 009 - sons por alarme | [spec](docs/specs/009-alarm-sounds/spec.md) | [plan](docs/specs/009-alarm-sounds/plan.md) | [tasks](docs/specs/009-alarm-sounds/tasks.md) |
 | 003 - disparo/recorrência | [spec](docs/specs/003-alerts-recurrence/spec.md) | [plan](docs/specs/003-alerts-recurrence/plan.md) | [tasks](docs/specs/003-alerts-recurrence/tasks.md) |
 
 [Checklist manual atual](docs/specs/003-alerts-recurrence/manual-checklist.md).
