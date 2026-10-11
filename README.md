@@ -131,56 +131,57 @@ Para verificar a execução oculta e restauração por segunda instância:
 ./scripts/Test-AlarmDelivery.ps1 -CloseToTray
 ```
 
-## Gerar versão portátil para testes
+## Gerar instalador para distribuição
 
-A publicação Release/x64 inclui os runtimes .NET e Windows App SDK.
-Quem receber o pacote não precisa instalar o .NET nem usar o Inno Setup.
+Requisitos no computador de desenvolvimento: .NET SDK 10.0.401 e
+[Inno Setup 6](https://jrsoftware.org/isinfo.php) instalado.
 
-No PowerShell, entre na raiz do repositório e execute:
+No PowerShell, execute:
 
 ```powershell
 cd E:\ProjetosPessoais\Team-Reminder-Client
-
-dotnet publish src/clients/TeamReminder.Windows -c Release -p:Platform=x64 -r win-x64 --self-contained true -o artifacts/publish
-if ($LASTEXITCODE -ne 0) { throw 'Falha ao gerar a publicação.' }
-
-Compress-Archive -Path .\artifacts\publish\* -DestinationPath .\artifacts\TeamReminder-Client-x64.zip -Force
+.\scripts\Build-Installer.ps1
 ```
 
-Envie o arquivo `artifacts/TeamReminder-Client-x64.zip`, que contém todos os arquivos necessários.
+O script compila a versão **Release/x64**, inclui os runtimes .NET e Windows App SDK
+e gera o instalador:
+
+```text
+E:\ProjetosPessoais\Team-Reminder-Client\artifacts\installer\TeamReminder-Setup-0.1.0-x64.exe
+```
+
+Execute o mesmo comando após atualizar o código. Quando a compilação termina com sucesso,
+o instalador anterior é substituído pela nova compilação.
+
+O script procura o compilador em `C:\Program Files (x86)\Inno Setup 6\ISCC.exe`.
+Se o Inno Setup estiver em outra pasta, informe o caminho:
+
+```powershell
+.\scripts\Build-Installer.ps1 -CompilerPath 'C:\caminho\ISCC.exe'
+```
 
 ### Instruções para quem vai testar
 
+Envie somente `TeamReminder-Setup-0.1.0-x64.exe`. Quem receber não precisa instalar
+.NET, Inno Setup ou ferramentas de desenvolvimento.
 Requisito: Windows 10 build 19041 ou superior, x64, incluindo Windows 11.
 
-1. Extraia todo o ZIP em uma pasta permanente.
-2. Execute `TeamReminder.Windows.exe` dentro dessa pasta.
-3. Crie um alarme e ajuste seu horário para um momento futuro.
-4. Para encerrar o aplicativo, use **Sair** no menu do ícone da bandeja.
+1. Execute o instalador e siga as etapas.
+2. Se desejar, marque **Iniciar com o Windows**, desmarcado por padrão.
+3. Abra **Team Reminder** pelo atalho no menu Iniciar.
+4. Crie um alarme e ajuste seu horário para um momento futuro.
+5. Para encerrar, use **Sair** no menu do ícone da bandeja.
    Fechar a janela mantém os alarmes ativos em segundo plano.
 
+A instalação é por usuário, sem exigir administrador, em
+`%LOCALAPPDATA%\Programs\TeamReminder`, e inclui desinstalador.
 Os alarmes ficam em `%LOCALAPPDATA%\TeamReminder\Data\team-reminder.db`
-no perfil de quem testa, separados dos arquivos do aplicativo.
-O pacote não inclui os alarmes ou configurações do desenvolvedor.
+no perfil de quem testa. O instalador não inclui os alarmes ou configurações do desenvolvedor.
+Desinstalar remove a inicialização automática e os arquivos instalados,
+preservando o banco de alarmes e as preferências locais.
 
-Se habilitar **Iniciar com o Windows**, mantenha o executável na mesma pasta.
-Ao mover a pasta, desative e ative novamente essa opção na nova localização para atualizar o caminho.
-
-## Instalador por usuário
-
-Instale [Inno Setup 6](https://jrsoftware.org/isinfo.php) no computador de desenvolvimento e execute:
-
-```powershell
-./scripts/Build-Installer.ps1
-# Ou informe o caminho do compilador:
-./scripts/Build-Installer.ps1 -CompilerPath 'C:\caminho\ISCC.exe'
-```
-
-O script publica Release/x64 com runtimes incluídos e gera artifacts/installer/TeamReminder-Setup-0.1.0-x64.exe.
-A instalação oferece Iniciar com o Windows, desmarcado por padrão, cria atalho no menu Iniciar
- e instala em %LOCALAPPDATA%/Programs/TeamReminder, sem exigir administrador.
-Desinstalar remove startup e arquivos instalados, preservando o banco de alarmes e tema.
-Fonte do instalador preparada; compilação/instalação ainda não verificadas por ausência do Inno Setup.
+Geração do instalador validada com Inno Setup 6.7.3; instalação/desinstalação
+ ainda pendentes de teste manual.
 
 [Spec 005 — Bandeja e startup](docs/specs/005-tray-startup/spec.md) · [Checklist](docs/specs/005-tray-startup/manual-checklist.md).
 
