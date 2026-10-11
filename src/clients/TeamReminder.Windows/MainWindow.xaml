@@ -2,83 +2,113 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="Team Reminder">
-    <Grid x:Name="Root" Padding="28" RowSpacing="16" Loaded="Root_Loaded">
+    <Grid x:Name="Root" Padding="24" RowSpacing="12" Loaded="Root_Loaded"
+        Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
-        <StackPanel Spacing="4">
-            <TextBlock Text="Team Reminder" Style="{StaticResource TitleTextBlockStyle}" />
-            <TextBlock Text="Mantenha o aplicativo aberto para receber os alarmes, inclusive minimizado." TextWrapping="Wrap"
-                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-        </StackPanel>
-        <StackPanel Grid.Row="1" Spacing="8">
-            <ProgressBar IsIndeterminate="True" Visibility="{Binding IsBusy}" />
-            <InfoBar Title="Alarmes" Message="{Binding AlertText}" IsOpen="{Binding HasAlerts}" IsClosable="False" Severity="Informational" />
-            <Button Content="Dispensar avisos" Command="{Binding DismissAlertsCommand}" Visibility="{Binding HasAlerts}" />
-            <TextBlock Text="{Binding NotificationStatus}" TextWrapping="Wrap" />
-            <TextBlock Text="{Binding Message}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
-            <Button Content="Atualizar / tentar novamente" Command="{Binding ReloadCommand}" />
-        </StackPanel>
-        <Grid Grid.Row="2" ColumnSpacing="24">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" MinWidth="240" />
-                <ColumnDefinition Width="340" />
-            </Grid.ColumnDefinitions>
-            <Grid RowSpacing="12">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
-                <StackPanel Spacing="8">
-                    <TextBlock Text="Alarmes" Style="{StaticResource SubtitleTextBlockStyle}" />
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Button Content="Editar" Command="{Binding EditCommand}" />
-                        <Button Content="Excluir" Command="{Binding DeleteCommand}" />
-                    </StackPanel>
-                </StackPanel>
-                <TextBlock Grid.Row="1" Text="{Binding EmptyMessage}" TextWrapping="Wrap" />
-                <ListView Grid.Row="2" ItemsSource="{Binding Alarms}" SelectionMode="Single"
-                    SelectedItem="{Binding SelectedAlarm, Mode=TwoWay}" IsEnabled="{Binding CanEdit}">
-                    <ListView.ItemTemplate>
-                        <DataTemplate>
-                            <StackPanel Spacing="4" Padding="4,10">
-                                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                <TextBlock Text="{Binding Schedule}" />
-                                <TextBlock Text="{Binding RecurrenceText}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                <TextBlock Text="{Binding Status}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                            </StackPanel>
-                        </DataTemplate>
-                    </ListView.ItemTemplate>
-                </ListView>
-            </Grid>
-            <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" IsEnabled="{Binding CanEdit}">
-                <StackPanel Spacing="12">
-                    <TextBlock Text="{Binding FormTitle}" Style="{StaticResource SubtitleTextBlockStyle}" />
-                    <TextBox Header="Título" Text="{Binding Title, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                    <TextBlock Text="{Binding TitleError}" Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap" />
-                    <DatePicker Header="Data inicial" SelectedDate="{Binding SelectedDate, Mode=TwoWay}" />
-                    <TimePicker Header="Horário" ClockIdentifier="24HourClock" SelectedTime="{Binding SelectedTime, Mode=TwoWay}" />
-                    <TextBlock Text="{Binding ScheduleError}" Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap" />
-                    <ComboBox Header="Repetir" SelectedIndex="{Binding RecurrenceIndex, Mode=TwoWay}" HorizontalAlignment="Stretch">
-                        <ComboBoxItem Content="Uma vez" />
-                        <ComboBoxItem Content="Todos os dias" />
-                        <ComboBoxItem Content="Dias da semana" />
-                    </ComboBox>
-                    <ItemsControl ItemsSource="{Binding DayOptions}" Visibility="{Binding ShowWeekDays}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <CheckBox Content="{Binding Label}" IsChecked="{Binding IsSelected, Mode=TwoWay}" />
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                    <TextBlock Text="{Binding RecurrenceError}" Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap" />
-                    <Button Content="{Binding SaveLabel}" Command="{Binding SaveCommand}" Style="{StaticResource AccentButtonStyle}" />
-                    <Button Content="Cancelar edição" Command="{Binding CancelEditCommand}" Visibility="{Binding IsEditing}" />
-                </StackPanel>
-            </ScrollViewer>
+        <Grid>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+            <StackPanel Spacing="4">
+                <TextBlock Text="Team Reminder" Style="{StaticResource TitleTextBlockStyle}" />
+                <TextBlock Text="Seus compromissos, no momento certo." Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            </StackPanel>
+            <Border Grid.Column="1" VerticalAlignment="Center" Padding="12,6" CornerRadius="16"
+                Background="{ThemeResource ControlFillColorSecondaryBrush}">
+                <TextBlock Text="Local" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            </Border>
         </Grid>
+        <StackPanel Grid.Row="1" Spacing="6">
+            <ProgressBar IsIndeterminate="True" Visibility="{Binding IsBusy}" />
+            <InfoBar Title="Alarmes recebidos" Message="{Binding AlertText}" IsOpen="{Binding HasAlerts}" IsClosable="False" Severity="Informational">
+                <InfoBar.ActionButton><Button Content="Dispensar" Command="{Binding DismissAlertsCommand}" /></InfoBar.ActionButton>
+            </InfoBar>
+            <TextBlock Text="{Binding NotificationStatus}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <TextBlock x:Name="TrayStatus" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+            <TextBlock Text="{Binding Message}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+        </StackPanel>
+        <TabView x:Name="MainTabs" Grid.Row="2" IsAddTabButtonVisible="False" CanDragTabs="False" CanReorderTabs="False" TabWidthMode="SizeToContent">
+            <TabViewItem Header="Alarmes" IsClosable="False">
+                <TabViewItem.IconSource><SymbolIconSource Symbol="Clock" /></TabViewItem.IconSource>
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <Grid Margin="0,16,0,0" ColumnSpacing="20" RowSpacing="20">
+                        <Border x:Name="ListPanel" Padding="20" CornerRadius="12" VerticalAlignment="Top"
+                            Background="{ThemeResource ControlFillColorDefaultBrush}" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1">
+                            <StackPanel Spacing="16">
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="Meus alarmes" Style="{StaticResource SubtitleTextBlockStyle}" />
+                                    <TextBlock Text="Selecione um alarme para editar ou excluir." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Button Content="Novo alarme" Click="NewAlarm_Click" IsEnabled="{Binding CanEdit}" Style="{StaticResource AccentButtonStyle}" />
+                                    <Button Content="Editar" Click="EditAlarm_Click" IsEnabled="{Binding CanEditSelected}" />
+                                    <Button Content="Excluir" Command="{Binding DeleteCommand}" />
+                                    <Button Command="{Binding ReloadCommand}" ToolTipService.ToolTip="Atualizar / tentar novamente" AutomationProperties.Name="Atualizar alarmes"><SymbolIcon Symbol="Refresh" /></Button>
+                                </StackPanel>
+                                <TextBlock Text="{Binding EmptyMessage}" TextWrapping="Wrap" />
+                                <ListView ItemsSource="{Binding Alarms}" SelectionMode="Single" MaxHeight="600"
+                                    SelectedItem="{Binding SelectedAlarm, Mode=TwoWay}" IsEnabled="{Binding CanEdit}">
+                                    <ListView.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Padding="4,12" ColumnSpacing="12">
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                                <SymbolIcon Symbol="Clock" VerticalAlignment="Top" Margin="0,4,0,0" Foreground="{ThemeResource SystemControlHighlightAccentBrush}" />
+                                                <StackPanel Grid.Column="1" Spacing="5">
+                                                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                                    <TextBlock Text="{Binding Schedule}" />
+                                                    <TextBlock Text="{Binding RecurrenceText}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                    <TextBlock Text="{Binding Status}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                </StackPanel>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListView.ItemTemplate>
+                                </ListView>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </ScrollViewer>
+            </TabViewItem>
+            <TabViewItem Header="Configurações" IsClosable="False">
+                <TabViewItem.IconSource><SymbolIconSource Symbol="Setting" /></TabViewItem.IconSource>
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="0,16,0,0" Spacing="20" MaxWidth="680" HorizontalAlignment="Left">
+                        <Border Padding="24" CornerRadius="12" Background="{ThemeResource ControlFillColorDefaultBrush}" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1">
+                            <StackPanel Spacing="12">
+                                <TextBlock Text="Aparência" Style="{StaticResource SubtitleTextBlockStyle}" />
+                                <TextBlock Text="Escolha como o Team Reminder aparece neste computador." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <ComboBox x:Name="ThemePicker" Header="Tema" MinWidth="240" SelectionChanged="ThemePicker_SelectionChanged">
+                                    <ComboBoxItem Content="Padrão do Windows" /><ComboBoxItem Content="Claro" /><ComboBoxItem Content="Escuro" />
+                                </ComboBox>
+                                <TextBlock x:Name="ThemeStatus" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+                            </StackPanel>
+                        </Border>
+                        <Border Padding="24" CornerRadius="12" Background="{ThemeResource ControlFillColorDefaultBrush}" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1">
+                            <StackPanel Spacing="12">
+                                <TextBlock Text="Lembrete antecipado" Style="{StaticResource SubtitleTextBlockStyle}" />
+                                <TextBlock Text="Receba um aviso na bandeja antes do horário de cada alarme." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <ComboBox x:Name="AdvancePicker" Header="Notificar antes" MinWidth="240" SelectionChanged="AdvancePicker_SelectionChanged">
+                                    <ComboBoxItem Content="Desativado" /><ComboBoxItem Content="5 minutos antes" />
+                                    <ComboBoxItem Content="10 minutos antes" /><ComboBoxItem Content="15 minutos antes" />
+                                    <ComboBoxItem Content="30 minutos antes" /><ComboBoxItem Content="1 hora antes" />
+                                </ComboBox>
+                                <TextBlock x:Name="AdvanceStatus" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+                            </StackPanel>
+                        </Border>
+                        <Border Padding="24" CornerRadius="12" Background="{ThemeResource ControlFillColorDefaultBrush}" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="Inicialização" Style="{StaticResource SubtitleTextBlockStyle}" />
+                                <ToggleSwitch x:Name="StartupToggle" Header="Iniciar com o Windows" OnContent="Ativado" OffContent="Desativado" Toggled="StartupToggle_Toggled" />
+                                <TextBlock Text="Ao entrar no Windows, o aplicativo fica na bandeja sem abrir a janela." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <TextBlock x:Name="StartupStatus" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+                                <TextBlock Text="Sobre os alarmes" Style="{StaticResource SubtitleTextBlockStyle}" />
+                                <TextBlock Text="Os alarmes ficam neste computador. Fechar a janela mantém o app na bandeja; Sair encerra os alarmes." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabViewItem>
+        </TabView>
     </Grid>
 </Window>

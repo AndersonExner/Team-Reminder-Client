@@ -121,7 +121,7 @@ public class RecurrenceTests
         var zone = TimeZoneInfo.FindSystemTimeZoneById("E. South America Standard Time");
         var vm = new AlarmsViewModel(new AlarmService(repo, clock), clock, () => zone);
         Assert.Equal(new DateTime(2026, 10, 10), vm.SelectedDate!.Value.Date);
-        Assert.Null(vm.SelectedTime);
+        Assert.Equal(TimeSpan.FromHours(22), vm.SelectedTime);
         Assert.Equal(RecurrenceKind.Once, vm.Recurrence);
         repo.Alarms.Add(new Alarm(Guid.NewGuid(), "Consulta", now.AddDays(2), now, "UTC"));
         await vm.LoadAsync();
@@ -130,7 +130,7 @@ public class RecurrenceTests
         clock.Utc = Utc(10, 12, 12);
         vm.CancelEdit();
         Assert.Equal(new DateTime(2026, 10, 12), vm.SelectedDate!.Value.Date);
-        Assert.Null(vm.SelectedTime);
+        Assert.Equal(TimeSpan.FromHours(9), vm.SelectedTime);
     }
 
     [Fact]

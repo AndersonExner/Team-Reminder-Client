@@ -60,13 +60,16 @@ public sealed class AlarmsViewModel : ObservableObject
     private RecurrenceKind recurrence;
     private string recurrenceError = "", alertText = "", notificationStatus = "";
     private AlarmScheduler? scheduler;
+    private EarlyReminderScheduler? earlyScheduler;
 
     public AlarmsViewModel(AlarmService service, TimeProvider clock, Func<TimeZoneInfo>? zone = null)
     {
         this.service = service;
         this.clock = clock;
         this.zone = zone ?? (() => TimeZoneInfo.Local);
-        selectedDate = Today();
+        var localNow = Today();
+        selectedDate = localNow;
+        selectedTime = new TimeSpan(localNow.Hour, localNow.Minute, 0);
         DismissAlertsCommand = new AsyncCommand(() => { AlertText = ""; return Task.CompletedTask; }, () => true);
         SaveCommand = new AsyncCommand(SaveAsync, () => CanEdit);
         ReloadCommand = new AsyncCommand(LoadAsync, () => !busy);
@@ -109,6 +112,7 @@ public sealed class AlarmsViewModel : ObservableObject
     public string NotificationStatus { get => notificationStatus; private set => Set(ref notificationStatus, value); }
     public void SetNotificationStatus(string value) => NotificationStatus = value;
     public void ConfigureScheduler(AlarmScheduler value) => scheduler = value;
+    public void ConfigureEarlyScheduler(EarlyReminderScheduler value) => earlyScheduler = value;
     public void ReportAlert(AlarmDelivery delivery)
     {
         var line = $"{delivery.Alarm.Title} — {delivery.OccurrenceUtc.ToLocalTime():dd/MM/yyyy HH:mm}";
@@ -135,6 +139,7 @@ public sealed class AlarmsViewModel : ObservableObject
     public string Message { get => message; private set => Set(ref message, value); }
     public bool IsBusy => busy;
     public bool CanEdit => loaded && !busy;
+    public bool CanEditSelected => CanEdit && SelectedAlarm is not null;
     public bool IsEditing => editingAlarm is not null;
     public string FormTitle => IsEditing ? "Editar alarme" : "Novo alarme";
     public string SaveLabel => IsEditing ? "Salvar alterações" : "Salvar alarme";
@@ -142,6 +147,7 @@ public sealed class AlarmsViewModel : ObservableObject
 
     private void RefreshCommands()
     {
+        Notify(nameof(CanEditSelected));
         SaveCommand.Refresh(); ReloadCommand.Refresh(); EditCommand.Refresh();
         CancelEditCommand.Refresh(); DeleteCommand.Refresh();
     }
@@ -181,10 +187,24 @@ public sealed class AlarmsViewModel : ObservableObject
         Message = "Edição cancelada.";
     }
 
+    public void BeginCreate()
+    {
+        if (!CanEdit) return;
+        ResetForm();
+        Message = "";
+    }
+
+    public void DiscardForm()
+    {
+        if (!CanEdit) return;
+        ResetForm();
+    }
+
     private void ResetForm()
     {
         editingAlarm = null;
-        Title = ""; SelectedDate = Today(); SelectedTime = null;
+        var localNow = Today();
+        Title = ""; SelectedDate = localNow; SelectedTime = new TimeSpan(localNow.Hour, localNow.Minute, 0);
         Recurrence = RecurrenceKind.Once;
         foreach (var day in DayOptions) day.IsSelected = false;
         TitleError = ScheduleError = RecurrenceError = "";
@@ -221,9 +241,9 @@ public sealed class AlarmsViewModel : ObservableObject
         finally { SetBusy(false); }
     }
 
-    public async Task SaveAsync()
+    public async Task<bool> SaveAsync()
     {
-        if (!CanEdit) return;
+        if (!CanEdit) return false;
         SetBusy(true);
         TitleError = ScheduleError = RecurrenceError = Message = "";
         try
@@ -236,6 +256,7 @@ public sealed class AlarmsViewModel : ObservableObject
             ReplaceRows(Alarms.Select(row => row.Alarm).Where(a => a.Id != alarm.Id).Append(alarm).ToArray());
             ResetForm();
             Message = editing is null ? "Alarme salvo." : "Alarme atualizado.";
+            return true;
         }
         catch (AlarmValidationException ex)
         {
@@ -249,6 +270,7 @@ public sealed class AlarmsViewModel : ObservableObject
             Message = "O alarme não foi salvo. Confira o acesso ao armazenamento e tente novamente.";
         }
         finally { SetBusy(false); }
+        return false;
     }
 
     public async Task DeleteSelectedAsync()
@@ -304,6 +326,19 @@ public sealed class AlarmsViewModel : ObservableObject
         }
         finally { SetBusy(false); }
     }
+    public async Task ProcessEarlyAsync()
+    {
+        if (!CanEdit || earlyScheduler is null || !earlyScheduler.ShouldCheck(Alarms.Select(row => row.Alarm))) return;
+        SetBusy(true);
+        try
+        {
+            var errors = await earlyScheduler.TickAsync();
+            if (errors.Count > 0) Message = string.Join(Environment.NewLine, errors);
+        }
+        catch (Exception) { Message = "Não foi possível verificar os lembretes antecipados. Uma nova tentativa será feita."; }
+        finally { SetBusy(false); }
+    }
+
     public void RefreshTime() { foreach (var row in Alarms) row.Refresh(); }
 }
 

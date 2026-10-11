@@ -39,3 +39,7 @@ Registrar no tasks.md comandos, resultados e limitações materiais.
 Leia a especificação 001 como usuário: ela permite prever o comportamento?
 Leia o plano como desenvolvedor: ele permite construir a solução?
 Leia as tarefas como executor: elas permitem saber o que falta e como verificar?
+
+## Branches
+
+Cada alteração deve ocorrer em uma branch feature/. Nunca desenvolver ou commitar diretamente na main.

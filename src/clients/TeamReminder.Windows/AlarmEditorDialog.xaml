@@ -1,0 +1,27 @@
+<ContentDialog x:Class="TeamReminder.Windows.AlarmEditorDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="{Binding FormTitle}" PrimaryButtonText="{Binding SaveLabel}" SecondaryButtonText="Cancelar"
+    DefaultButton="Primary" IsPrimaryButtonEnabled="{Binding CanEdit}" IsSecondaryButtonEnabled="{Binding CanEdit}"
+    PrimaryButtonClick="Save_Click" Closing="Dialog_Closing" Opened="Dialog_Opened">
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" MaxHeight="520" IsEnabled="{Binding CanEdit}">
+        <StackPanel Spacing="10" MinWidth="300">
+                                <TextBox x:Name="AlarmTitle" Header="Título" PlaceholderText="Ex.: tomar medicamento" MaxLength="120" Text="{Binding Title, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                <TextBlock Text="{Binding TitleError}" Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap" />
+                                <DatePicker Header="Data inicial" HorizontalAlignment="Stretch" SelectedDate="{Binding SelectedDate, Mode=TwoWay}" />
+                                <TimePicker Header="Horário" HorizontalAlignment="Stretch" ClockIdentifier="24HourClock" SelectedTime="{Binding SelectedTime, Mode=TwoWay}" />
+                                <TextBlock Text="{Binding ScheduleError}" Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap" />
+                                <ComboBox Header="Repetir" SelectedIndex="{Binding RecurrenceIndex, Mode=TwoWay}" HorizontalAlignment="Stretch">
+                                    <ComboBoxItem Content="Uma vez" /><ComboBoxItem Content="Todos os dias" /><ComboBoxItem Content="Dias da semana" />
+                                </ComboBox>
+                                <ItemsControl ItemsSource="{Binding DayOptions}" Visibility="{Binding ShowWeekDays}">
+                                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><VariableSizedWrapGrid Orientation="Horizontal" MaximumRowsOrColumns="2" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate><DataTemplate><CheckBox Content="{Binding Label}" MinWidth="140" IsChecked="{Binding IsSelected, Mode=TwoWay}" /></DataTemplate></ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <TextBlock Text="{Binding RecurrenceError}" Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap" />
+            <TextBlock Text="Para tocar uma vez, escolha uma data e um horário futuros." FontSize="12"
+                TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <TextBlock Text="{Binding Message}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+        </StackPanel>
+    </ScrollViewer>
+</ContentDialog>
