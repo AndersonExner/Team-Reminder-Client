@@ -34,7 +34,7 @@ public class AlarmsViewModelTests
         Assert.Single(vm.Alarms);
         Assert.Equal("", vm.Title);
         Assert.Equal(Now.Date, vm.SelectedDate!.Value.Date);
-        Assert.Null(vm.SelectedTime);
+        Assert.Equal(Now.TimeOfDay, vm.SelectedTime);
         Assert.Equal("Alarme salvo.", vm.Message);
     }
 

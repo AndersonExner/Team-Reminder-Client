@@ -3,7 +3,7 @@ using TeamReminder.Core;
 
 namespace TeamReminder.Local;
 
-public sealed class LiteDbAlarmRepository(string filePath) : IAlarmRepository, IDisposable
+public sealed class LiteDbAlarmRepository(string filePath) : IAlarmRepository, IEarlyReminderReceiptStore, IDisposable
 {
     private readonly object gate = new();
     private LiteDatabase? database;
@@ -78,9 +78,42 @@ public sealed class LiteDbAlarmRepository(string filePath) : IAlarmRepository, I
         }
     });
 
+    public Task<DateTime?> GetEarlyReminderOccurrenceAsync(Guid alarmId) => Task.Run(() =>
+    {
+        lock (gate)
+        {
+            Collection();
+            return Utc(database!.GetCollection<EarlyReminderReceipt>("earlyReminderReceipts")
+                .FindById(alarmId)?.OccurrenceUtc);
+        }
+    });
+
+    public Task<bool> RecordEarlyReminderAsync(Alarm expected) => Task.Run(() =>
+    {
+        lock (gate)
+        {
+            var existing = Collection().FindById(expected.Id);
+            if (existing is null || ToAlarm(existing) != expected || expected.DueAtUtc is not { } due) return false;
+            database!.GetCollection<EarlyReminderReceipt>("earlyReminderReceipts").Upsert(
+                new EarlyReminderReceipt { Id = expected.Id, OccurrenceUtc = due });
+            return true;
+        }
+    });
+
+    public sealed class EarlyReminderReceipt
+    {
+        public Guid Id { get; set; }
+        public DateTime OccurrenceUtc { get; set; }
+    }
+
     public Task<bool> DeleteAsync(Guid id) => Task.Run(() =>
     {
-        lock (gate) { return Collection().Delete(id); }
+        lock (gate)
+        {
+            var deleted = Collection().Delete(id);
+            if (deleted) database!.GetCollection<EarlyReminderReceipt>("earlyReminderReceipts").Delete(id);
+            return deleted;
+        }
     });
 
     private static DateTime Utc(DateTime value) => DateTime.SpecifyKind(value, DateTimeKind.Utc);
