@@ -1,4 +1,3 @@
-using System.Security;
 using Microsoft.Windows.AppNotifications;
 using TeamReminder.Core;
 
@@ -35,10 +34,7 @@ public sealed class WindowsAlarmNotifier(Action<AlarmDelivery> reportAlert,
         {
             try
             {
-                var title = SecurityElement.Escape(delivery.Alarm.Title);
-                var schedule = delivery.OccurrenceUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm");
-                var prefix = delivery.IsLate ? "Alarme atrasado" : "Hora do alarme";
-                var notification = new AppNotification($"<toast><visual><binding template='ToastGeneric'><text>Team Reminder</text><text>{title}</text><text>{prefix} — {schedule}</text></binding></visual><audio silent='true'/></toast>");
+                var notification = new AppNotification(AlarmNotificationXml.Build(delivery));
                 AppNotificationManager.Default.Show(notification);
                 notificationId = notification.Id;
                 if (notificationId == 0) reportStatus("O Windows não aceitou este aviso. Confira as notificações; o som e o aviso nesta janela continuam disponíveis.");
@@ -61,7 +57,7 @@ public sealed class WindowsAlarmNotifier(Action<AlarmDelivery> reportAlert,
                     delivery.Alarm.Id, delivery.Alarm.Title, delivery.OccurrenceUtc,
                     DeliveredAtUtc = DateTime.UtcNow, SoundAccepted = soundAccepted,
                     SoundKind = (int)delivery.Alarm.Sound.Kind, SoundFallback = soundPlayer.LastPlaybackUsedFallback,
-                    NotificationId = notificationId, NotificationRegistered = registered
+                    NotificationId = notificationId, NotificationRegistered = registered, NotificationXml = AlarmNotificationXml.Build(delivery)
                 }) + Environment.NewLine);
             }
             catch (IOException) { /* Diagnostic logging must not repeat an accepted alert. */ }

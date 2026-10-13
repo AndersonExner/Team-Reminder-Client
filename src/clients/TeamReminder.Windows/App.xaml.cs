@@ -19,6 +19,15 @@ public partial class App : Application
     {
         // SID keeps the mutex isolated per Windows account, including multiple sessions.
         var sid = System.Security.Principal.WindowsIdentity.GetCurrent().User!.Value;
+#if DEBUG
+        var isolatedData = Environment.GetEnvironmentVariable("TEAMREMINDER_TEST_DATA_FILE");
+        if (!string.IsNullOrEmpty(isolatedData))
+        {
+            var identity = System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes(Path.GetFullPath(isolatedData).ToUpperInvariant()));
+            sid += ".Test." + Convert.ToHexString(identity)[..16];
+        }
+#endif
         instanceMutex = new Mutex(true, @"Global\TeamReminder.Client." + sid, out var first);
         if (!first)
         {

@@ -40,6 +40,9 @@ public sealed class AlarmRow(Alarm alarm, TimeProvider clock) : ObservableObject
     public Alarm Alarm { get; } = alarm;
     public string Title => Alarm.Title;
     public string Schedule => (Alarm.DueAtUtc ?? Alarm.ScheduledAtUtc).ToLocalTime().ToString("dd/MM/yyyy HH:mm");
+    public bool HasLink => AlarmLink.TryGetUri(Alarm.Link?.Url, out _);
+    public string ActionLabel => Alarm.Link?.Label ?? "Abrir link";
+    public string ActionUrl => Alarm.Link?.Url ?? "";
     public string SoundText => Alarm.Sound.Label;
     public string RecurrenceText => RecurrenceCalendar.Describe(Alarm.Recurrence, Alarm.Days);
     public string Status => Alarm.DueAtUtc is not { } due ? "Disparado"
@@ -60,6 +63,12 @@ public sealed class AlarmsViewModel : ObservableObject
     private bool busy, loaded;
     private RecurrenceKind recurrence;
     private AlarmSound sound = AlarmSound.Default;
+    private string actionUrl = "", actionLabel = "", actionError = "";
+    public string ActionUrl { get => actionUrl; set => Set(ref actionUrl, value); }
+    public string ActionLabel { get => actionLabel; set => Set(ref actionLabel, value); }
+    public string ActionError { get => actionError; private set => Set(ref actionError, value); }
+    public Func<Uri, Task<bool>> LaunchLinkAsync { get; set; } = _ => Task.FromResult(false);
+    public ObservableCollection<AlarmRow> ReceivedAlarms { get; } = [];
     private string soundError = "";
     public AlarmSound Sound { get => sound; set => Set(ref sound, value); }
     public string SoundError { get => soundError; private set => Set(ref soundError, value); }
@@ -75,7 +84,7 @@ public sealed class AlarmsViewModel : ObservableObject
         var localNow = Today();
         selectedDate = localNow;
         selectedTime = new TimeSpan(localNow.Hour, localNow.Minute, 0);
-        DismissAlertsCommand = new AsyncCommand(() => { AlertText = ""; return Task.CompletedTask; }, () => true);
+        DismissAlertsCommand = new AsyncCommand(() => { AlertText = ""; ReceivedAlarms.Clear(); return Task.CompletedTask; }, () => true);
         SaveCommand = new AsyncCommand(SaveAsync, () => CanEdit);
         ReloadCommand = new AsyncCommand(LoadAsync, () => !busy);
         EditCommand = new AsyncCommand(() => { BeginEditSelected(); return Task.CompletedTask; }, () => CanEdit && SelectedAlarm is not null);
@@ -120,10 +129,25 @@ public sealed class AlarmsViewModel : ObservableObject
     public void ConfigureEarlyScheduler(EarlyReminderScheduler value) => earlyScheduler = value;
     public void ReportAlert(AlarmDelivery delivery)
     {
+        ReceivedAlarms.Insert(0, new AlarmRow(delivery.Alarm, clock));
+        while (ReceivedAlarms.Count > 10) ReceivedAlarms.RemoveAt(ReceivedAlarms.Count - 1);
         var line = $"{delivery.Alarm.Title} — {delivery.OccurrenceUtc.ToLocalTime():dd/MM/yyyy HH:mm}";
         if (delivery.IsLate) line += " (aviso atrasado)";
         AlertText = string.Join(Environment.NewLine, new[] { line }
             .Concat(AlertText.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries)).Take(10));
+    }
+    public async Task OpenActionAsync(Alarm alarm)
+    {
+        if (!AlarmLink.TryGetUri(alarm.Link?.Url, out var uri))
+        {
+            Message = "Este alarme não possui um link HTTP/HTTPS válido."; return;
+        }
+        try
+        {
+            Message = await LaunchLinkAsync(uri!) ? "Link enviado ao navegador padrão."
+                : "Não foi possível abrir o link. Confira o navegador padrão e tente novamente.";
+        }
+        catch (Exception) { Message = "Não foi possível abrir o link. Confira o navegador padrão e tente novamente."; }
     }
     private DateTimeOffset Today()
     {
@@ -179,10 +203,12 @@ public sealed class AlarmsViewModel : ObservableObject
         Title = editingAlarm.Title;
         SelectedDate = new DateTimeOffset(DateTime.SpecifyKind(local, DateTimeKind.Unspecified), localZone.GetUtcOffset(local));
         SelectedTime = local.TimeOfDay;
+        ActionUrl = editingAlarm.Link?.Url ?? "";
+        ActionLabel = editingAlarm.Link?.Label ?? "";
         Sound = editingAlarm.Sound;
         Recurrence = editingAlarm.Recurrence;
         foreach (var day in DayOptions) day.IsSelected = editingAlarm.Days.HasFlag(day.Day);
-        TitleError = ScheduleError = RecurrenceError = SoundError = Message = "";
+        TitleError = ScheduleError = RecurrenceError = SoundError = ActionError = Message = "";
         NotifyMode();
     }
 
@@ -211,10 +237,11 @@ public sealed class AlarmsViewModel : ObservableObject
         editingAlarm = null;
         var localNow = Today();
         Title = ""; SelectedDate = localNow; SelectedTime = new TimeSpan(localNow.Hour, localNow.Minute, 0);
+        ActionUrl = ActionLabel = "";
         Sound = AlarmSound.Default;
         Recurrence = RecurrenceKind.Once;
         foreach (var day in DayOptions) day.IsSelected = false;
-        TitleError = ScheduleError = RecurrenceError = SoundError = "";
+        TitleError = ScheduleError = RecurrenceError = SoundError = ActionError = "";
         NotifyMode();
     }
 
@@ -252,14 +279,14 @@ public sealed class AlarmsViewModel : ObservableObject
     {
         if (!CanEdit) return false;
         SetBusy(true);
-        TitleError = ScheduleError = RecurrenceError = SoundError = Message = "";
+        TitleError = ScheduleError = RecurrenceError = SoundError = ActionError = Message = "";
         try
         {
             var editing = editingAlarm;
             var days = DayOptions.Where(day => day.IsSelected).Aggregate(WeekDays.None, (value, day) => value | day.Day);
             var alarm = editing is null
-                ? await service.CreateAsync(Title, SelectedDate?.Date, SelectedTime, zone(), Recurrence, days, Sound)
-                : await service.UpdateAsync(editing, Title, SelectedDate?.Date, SelectedTime, zone(), Recurrence, days, Sound);
+                ? await service.CreateAsync(Title, SelectedDate?.Date, SelectedTime, zone(), Recurrence, days, Sound, ActionUrl, ActionLabel)
+                : await service.UpdateAsync(editing, Title, SelectedDate?.Date, SelectedTime, zone(), Recurrence, days, Sound, ActionUrl, ActionLabel);
             ReplaceRows(Alarms.Select(row => row.Alarm).Where(a => a.Id != alarm.Id).Append(alarm).ToArray());
             ResetForm();
             Message = editing is null ? "Alarme salvo." : "Alarme atualizado.";
@@ -268,6 +295,7 @@ public sealed class AlarmsViewModel : ObservableObject
         catch (AlarmValidationException ex)
         {
             if (ex.Field == "Title") TitleError = ex.Message;
+            else if (ex.Field == "Action") ActionError = ex.Message;
             else if (ex.Field == "Sound") SoundError = ex.Message;
             else if (ex.Field == "Recurrence") RecurrenceError = ex.Message;
             else ScheduleError = ex.Message;

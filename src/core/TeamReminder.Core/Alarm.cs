@@ -12,6 +12,7 @@ public enum WeekDays
 public sealed record Alarm(Guid Id, string Title, DateTime ScheduledAtUtc,
     DateTime CreatedAtUtc, string TimeZoneId)
 {
+    public AlarmLink? Link { get; init; }
     public AlarmSound Sound { get; init; } = AlarmSound.Default;
     public RecurrenceKind Recurrence { get; init; }
     public WeekDays Days { get; init; }
@@ -46,16 +47,17 @@ public sealed class AlarmService(IAlarmRepository repository, TimeProvider clock
 
     public async Task<Alarm> CreateAsync(string? title, DateTime? localDate,
         TimeSpan? localTime, TimeZoneInfo zone, RecurrenceKind recurrence = RecurrenceKind.Once,
-        WeekDays days = WeekDays.None, AlarmSound? sound = null)
+        WeekDays days = WeekDays.None, AlarmSound? sound = null, string? linkUrl = null, string? linkLabel = null)
     {
         sound ??= AlarmSound.Default;
         sound.Validate();
+        var link = AlarmLink.Create(linkUrl, linkLabel);
         var (normalizedTitle, utc) = Validate(title, localDate, localTime, zone, recurrence, days);
         var now = clock.GetUtcNow().UtcDateTime;
         now = new DateTime(now.Ticks - now.Ticks % TimeSpan.TicksPerMillisecond, DateTimeKind.Utc);
         var alarm = new Alarm(Guid.NewGuid(), normalizedTitle, utc, now, zone.Id)
         {
-            Sound = sound,
+            Sound = sound, Link = link,
             Recurrence = recurrence,
             Days = recurrence == RecurrenceKind.Weekly ? days : WeekDays.None,
             NextOccurrenceUtc = utc
@@ -66,15 +68,16 @@ public sealed class AlarmService(IAlarmRepository repository, TimeProvider clock
 
     public async Task<Alarm> UpdateAsync(Alarm original, string? title, DateTime? localDate,
         TimeSpan? localTime, TimeZoneInfo zone, RecurrenceKind recurrence = RecurrenceKind.Once,
-        WeekDays days = WeekDays.None, AlarmSound? sound = null)
+        WeekDays days = WeekDays.None, AlarmSound? sound = null, string? linkUrl = null, string? linkLabel = null)
     {
         sound ??= AlarmSound.Default;
         sound.Validate();
+        var link = AlarmLink.Create(linkUrl, linkLabel);
         var (normalizedTitle, utc) = Validate(title, localDate, localTime, zone, recurrence, days);
         var updated = original with
         {
             Title = normalizedTitle, ScheduledAtUtc = utc, TimeZoneId = zone.Id,
-            Sound = sound,
+            Sound = sound, Link = link,
             Recurrence = recurrence, Days = recurrence == RecurrenceKind.Weekly ? days : WeekDays.None,
             NextOccurrenceUtc = utc, LastDeliveredOccurrenceUtc = null
         };
