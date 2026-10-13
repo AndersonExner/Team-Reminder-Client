@@ -1,6 +1,6 @@
 param([switch]$StartInTray, [switch]$CloseToTray,
     [ValidateSet('Default', 'Notification', 'Exclamation', 'Critical', 'Silent', 'Custom')]
-    [string]$SoundKind = 'Default', [string]$AudioFile, [switch]$MissingSound)
+    [string]$SoundKind = 'Default', [string]$AudioFile, [switch]$MissingSound, [string]$LinkUrl, [string]$LinkLabel = 'Abrir link')
 # Requires PowerShell 7.4+ (Start-Process -Environment) and a Debug/x64 build.
 # Uses an isolated database; never reads or changes the user's alarm database.
 $ErrorActionPreference = 'Stop'
@@ -8,8 +8,8 @@ $repoPath = Split-Path -Parent $PSScriptRoot
 $outputPath = Join-Path $repoPath 'src/clients/TeamReminder.Windows/bin/x64/Debug/net10.0-windows10.0.19041.0/win-x64'
 $exePath = Join-Path $outputPath 'TeamReminder.Windows.exe'
 if (-not (Test-Path -LiteralPath $exePath)) { throw 'Compile Debug/x64 antes de executar este teste.' }
-$existing = Get-Process -Name TeamReminder.Windows -ErrorAction SilentlyContinue
-if ($existing) { throw 'Feche o aplicativo antes de executar este teste isolado.' }
+$existing = Get-Process -Name TeamReminder.Windows -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $exePath }
+if ($existing) { throw 'Encerre a instância Debug deste build antes de testar. O app instalado pode permanecer aberto.' }
 
 $testPath = Join-Path $repoPath ('artifacts/smoke/' + [Guid]::NewGuid().ToString())
 New-Item -ItemType Directory -Path $testPath -Force | Out-Null
@@ -41,6 +41,10 @@ try {
     if ($SoundKind -eq 'Custom') {
         $document['SoundFileId'] = [LiteDB.BsonValue]::new($soundId)
         $document['SoundFileName'] = [LiteDB.BsonValue]::new([IO.Path]::GetFileName($AudioFile))
+    }
+    if ($LinkUrl) {
+        $document['LinkUrl'] = [LiteDB.BsonValue]::new($LinkUrl)
+        $document['LinkLabel'] = [LiteDB.BsonValue]::new($LinkLabel)
     }
     $null = $database.GetCollection('alarms').Insert($document)
 } finally { $database.Dispose() }
@@ -76,6 +80,15 @@ try {
     if ([bool]$delivery.SoundFallback -ne [bool]$MissingSound) { throw 'Uso de fallback difere do esperado.' }
     if ($delivery.SoundKind -ne $soundKinds[$SoundKind]) { throw 'Som entregue difere do salvo no banco.' }
     if (-not $delivery.SoundAccepted) { throw 'O Windows não aceitou a reprodução do áudio.' }
+    [xml]$notificationXml = $delivery.NotificationXml
+    $action = $notificationXml.SelectSingleNode('/toast/actions/action')
+    if ($LinkUrl) {
+        if (-not $action -or $action.activationType -ne 'protocol' -or
+            $action.arguments -ne ([Uri]$LinkUrl).AbsoluteUri -or $action.content -ne $LinkLabel) {
+            throw 'Botão da notificação difere do link e texto salvos.'
+        }
+        Write-Output 'Botão de protocolo HTTP/HTTPS e parâmetros do link verificados.'
+    } elseif ($action) { throw 'Alarme sem link criou um botão inesperado.' }
     $delivery | Format-List
     if ($StartInTray -or $CloseToTray) {
         Add-Type -TypeDefinition @"
@@ -93,7 +106,7 @@ public static class TraySmokeWindow {
             throw ('Janela não ficou oculta. Estado: ' + ($windowState | ConvertTo-Json -Compress))
         }
         Write-Output 'Janela oculta durante o disparo na bandeja verificada.'
-        $second = Start-Process -FilePath $exePath -PassThru -WindowStyle Hidden
+        $second = Start-Process -FilePath $exePath -PassThru -WindowStyle Hidden -Environment @{ TEAMREMINDER_TEST_DATA_FILE = $databasePath }
         if (-not $second.WaitForExit(5000)) { Stop-Process -Id $second.Id; throw 'Segunda instância não encerrou.' }
         Start-Sleep -Milliseconds 500
         if (-not [TraySmokeWindow]::IsWindowVisible($window)) { throw 'Segunda instância não restaurou a janela.' }
@@ -114,6 +127,9 @@ $database = [LiteDB.LiteDatabase]::new($databasePath)
 try {
     $database.UtcDate = $true
     $stored = $database.GetCollection('alarms').FindAll() | Select-Object -First 1
+    if ($LinkUrl -and ($stored['LinkUrl'].AsString -ne $LinkUrl -or $stored['LinkLabel'].AsString -ne $LinkLabel)) {
+        throw 'Disparo alterou a ação salva.'
+    }
     if ($stored['LastDeliveredOccurrenceUtc'].IsNull) { throw 'Ocorrência não foi registrada no banco.' }
 } finally { $database.Dispose() }
 

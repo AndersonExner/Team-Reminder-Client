@@ -34,6 +34,7 @@ public sealed partial class MainWindow : Window
         this.viewModel = viewModel;
         this.sounds = sounds;
         this.repository = repository;
+        viewModel.LaunchLinkAsync = async uri => await global::Windows.System.Launcher.LaunchUriAsync(uri);
         DefaultSoundEditor.Configure(sounds, WinRT.Interop.WindowNative.GetWindowHandle(this), sounds.DefaultSound, allowDefault: false);
         DefaultSoundEditor.SelectionChanged += DefaultSound_Changed;
         Root.DataContext = viewModel;
@@ -132,6 +133,11 @@ public sealed partial class MainWindow : Window
         }
         finally { DefaultSoundEditor.IsEnabled = true; }
         await CleanSoundsAsync(DefaultSoundEditor.TakeImportedIds());
+    }
+
+    private async void OpenLink_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: AlarmRow row }) await viewModel.OpenActionAsync(row.Alarm);
     }
 
     private async void DeleteAlarm_Click(object sender, RoutedEventArgs e)

@@ -4,7 +4,7 @@ $ErrorActionPreference = 'Stop'
 $repoPath = Split-Path -Parent $PSScriptRoot
 $exePath = Join-Path $repoPath 'src/clients/TeamReminder.Windows/bin/x64/Debug/net10.0-windows10.0.19041.0/win-x64/TeamReminder.Windows.exe'
 if (-not (Test-Path -LiteralPath $exePath)) { throw 'Compile Debug/x64 antes de executar.' }
-if (Get-Process -Name TeamReminder.Windows -ErrorAction SilentlyContinue) { throw 'Encerre o app pelo menu Sair antes de testar.' }
+if (Get-Process -Name TeamReminder.Windows -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq $exePath }) { throw 'Encerre a instância Debug deste build antes de testar.' }
 $testPath = Join-Path $repoPath ('artifacts/audio-smoke/' + [Guid]::NewGuid().ToString())
 New-Item -ItemType Directory -Path $testPath -Force | Out-Null
 $reportPath = Join-Path $testPath 'report.json'

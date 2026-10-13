@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -22,4 +22,7 @@
     <ProjectReference Include="..\..\src\core\TeamReminder.Core\TeamReminder.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="../../src/clients/TeamReminder.Windows/AlarmNotificationXml.cs" Link="AlarmNotificationXml.cs" />
+  </ItemGroup>
 </Project>

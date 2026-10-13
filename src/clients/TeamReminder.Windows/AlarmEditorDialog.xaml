@@ -20,6 +20,12 @@
                                     <ItemsControl.ItemTemplate><DataTemplate><CheckBox Content="{Binding Label}" MinWidth="140" IsChecked="{Binding IsSelected, Mode=TwoWay}" /></DataTemplate></ItemsControl.ItemTemplate>
                                 </ItemsControl>
                                 <TextBlock Text="{Binding RecurrenceError}" Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap" />
+            <TextBox Header="Link (opcional)" PlaceholderText="https://sistema-de-ponto.exemplo.com"
+                MaxLength="2048" Text="{Binding ActionUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+            <TextBox Header="Texto do botão" PlaceholderText="Abrir link" MaxLength="40"
+                Text="{Binding ActionLabel, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+            <TextBlock Text="O link abre no navegador padrão somente quando você clicar." FontSize="12" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <TextBlock Text="{Binding ActionError}" Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap" />
             <local:SoundPickerControl x:Name="SoundEditor" />
             <TextBlock Text="{Binding SoundError}" Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap" />
             <TextBlock Text="Para tocar uma vez, escolha uma data e um horário futuros." FontSize="12"

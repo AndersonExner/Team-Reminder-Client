@@ -24,6 +24,17 @@
         <StackPanel Grid.Row="1" Spacing="6">
             <ProgressBar IsIndeterminate="True" Visibility="{Binding IsBusy}" />
             <InfoBar Title="Alarmes recebidos" Message="{Binding AlertText}" IsOpen="{Binding HasAlerts}" IsClosable="False" Severity="Informational">
+                <ScrollViewer MaxHeight="180" VerticalScrollBarVisibility="Auto">
+                <ItemsControl ItemsSource="{Binding ReceivedAlarms}">
+                    <ItemsControl.ItemTemplate><DataTemplate>
+                        <StackPanel Spacing="4" Margin="0,8,0,0" Visibility="{Binding HasLink}">
+                            <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                            <Button Content="{Binding ActionLabel}" Tag="{Binding}" Click="OpenLink_Click"
+                                Visibility="{Binding HasLink}" ToolTipService.ToolTip="{Binding ActionUrl}" />
+                        </StackPanel>
+                    </DataTemplate></ItemsControl.ItemTemplate>
+                </ItemsControl>
+                </ScrollViewer>
                 <InfoBar.ActionButton><Button Content="Dispensar" Command="{Binding DismissAlertsCommand}" /></InfoBar.ActionButton>
             </InfoBar>
             <TextBlock Text="{Binding NotificationStatus}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
@@ -61,6 +72,8 @@
                                                     <TextBlock Text="{Binding Schedule}" />
                                                     <TextBlock Text="{Binding RecurrenceText}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                                     <TextBlock Text="{Binding SoundText}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                    <Button Content="{Binding ActionLabel}" Tag="{Binding}" Click="OpenLink_Click"
+                                                        Visibility="{Binding HasLink}" ToolTipService.ToolTip="{Binding ActionUrl}" />
                                                     <TextBlock Text="{Binding Status}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                                 </StackPanel>
                                             </Grid>

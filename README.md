@@ -49,6 +49,23 @@ O alerta inclui o som escolhido, aviso na janela e notificação Windows.
 Se o canal Windows estiver indisponível, o aplicativo informa e mantém som/aviso local.
 O Windows controla volume, mudo e permissões de notificação.
 
+## Ação de abrir link
+
+Ao criar ou editar um alarme, preencha **Link (opcional)** e **Texto do botão**.
+Por exemplo: alarme **Bater ponto**, link do sistema da empresa e botão **Bater ponto**.
+Se deixar o texto vazio, o botão será **Abrir link**. Para remover a ação, limpe os dois campos.
+
+Aceita URLs completas HTTP/HTTPS, inclusive intranet, parâmetros e fragmentos; não aceita
+arquivos, comandos, outros protocolos ou credenciais no endereço.
+O link só abre ao clicar no botão, no navegador padrão: na lista de alarmes,
+no aviso recebido dentro do app ou na notificação Windows.
+Clicar no corpo da notificação somente restaura a janela.
+
+A URL e o texto ficam no LiteDB. Alarmes antigos permanecem sem ação.
+Abrir a página não confirma nem reagenda o alarme, e o app não preenche ou envia ponto.
+Um aviso já entregue mantém o link do momento do disparo, mesmo após editar o alarme.
+**Dispensar** limpa os avisos locais e seus botões.
+
 ## Som dos alarmes
 
 No modal de criação/edição, escolha **Usar padrão do aplicativo**, **Notificação do Windows**,
@@ -85,11 +102,11 @@ LiteDB é a fonte oficial no MVP local. O servidor terá repositório próprio n
  dotnet test tests/TeamReminder.Local.Tests
 ```
 
-87 testes de regras/ViewModel/calendário/motores e 30 de persistência e biblioteca de sons.
+101 testes de regras/ViewModel/calendário/motores/XML e 32 de persistência e biblioteca de sons.
 Os testes usam relógio controlado e bancos temporários; não alteram alarmes do usuário.
 
 Para verificar envio de áudio/notificação, persistência e reinício no executável Debug/x64,
-com o app fechado e PowerShell 7.4 ou superior:
+com a instância Debug deste build encerrada e PowerShell 7.4 ou superior:
 
 ```powershell
  ./scripts/Test-AlarmDelivery.ps1
@@ -102,9 +119,10 @@ e recursos XAML do modal, também com o app encerrado:
  ./scripts/Test-AlarmSounds.ps1
  ./scripts/Test-AlarmDelivery.ps1 -StartInTray -SoundKind Custom -AudioFile C:\caminho\som.mp3
  ./scripts/Test-AlarmDelivery.ps1 -SoundKind Silent
+ ./scripts/Test-AlarmDelivery.ps1 -StartInTray -LinkUrl "https://example.com/ponto" -LinkLabel "Bater ponto"
 ```
 
-Esses testes usam banco e pastas de áudio isolados. Os relatórios ficam em artifacts.
+Esses testes usam banco, pastas de áudio, mutex e IPC isolados no build Debug. O app instalado pode permanecer aberto. Os relatórios ficam em artifacts.
 
 Esse teste emite um aviso real com som, usando banco isolado em artifacts/smoke.
 Os parâmetros de ambiente de diagnóstico utilizados pelos scripts só existem no build Debug.
@@ -123,6 +141,7 @@ Aceitação da API de áudio não comprova que o volume do dispositivo esteja au
 | --- | --- | --- | --- |
 | 001 - cadastro/persistência | [spec](docs/specs/001-local-alarms/spec.md) | [plan](docs/specs/001-local-alarms/plan.md) | [tasks](docs/specs/001-local-alarms/tasks.md) |
 | 002 - edição/exclusão | [spec](docs/specs/002-edit-delete-alarms/spec.md) | [plan](docs/specs/002-edit-delete-alarms/plan.md) | [tasks](docs/specs/002-edit-delete-alarms/tasks.md) |
+| 010 - ações de link | [spec](docs/specs/010-alarm-link-actions/spec.md) | [plan](docs/specs/010-alarm-link-actions/plan.md) | [tasks](docs/specs/010-alarm-link-actions/tasks.md) |
 | 009 - sons por alarme | [spec](docs/specs/009-alarm-sounds/spec.md) | [plan](docs/specs/009-alarm-sounds/plan.md) | [tasks](docs/specs/009-alarm-sounds/tasks.md) |
 | 003 - disparo/recorrência | [spec](docs/specs/003-alerts-recurrence/spec.md) | [plan](docs/specs/003-alerts-recurrence/plan.md) | [tasks](docs/specs/003-alerts-recurrence/tasks.md) |
 
