@@ -7,7 +7,7 @@
     PrimaryButtonClick="Save_Click" Closing="Dialog_Closing" Opened="Dialog_Opened">
     <ContentDialog.Resources><x:Double x:Key="ContentDialogMaxWidth">640</x:Double></ContentDialog.Resources>
     <ScrollViewer Background="{ThemeResource ContentDialogBackground}" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" MaxHeight="580" IsEnabled="{Binding CanEdit}">
-        <StackPanel Spacing="16" MinWidth="360" MaxWidth="560">
+        <StackPanel Spacing="16" MinWidth="360" MaxWidth="560" Margin="0,0,24,0">
             <TextBlock Text="Defina quem recebe e quando lembrar. O aviso sempre toca no computador de cada participante."
                 TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
             <Border Padding="16" CornerRadius="10" Background="{ThemeResource ControlFillColorSecondaryBrush}">
