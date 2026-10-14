@@ -89,6 +89,7 @@
                 <TabViewItem.IconSource><SymbolIconSource Symbol="Setting" /></TabViewItem.IconSource>
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="0,16,0,0" Spacing="20" MaxWidth="680" HorizontalAlignment="Left">
+                        <local:AccountControl />
                         <Border Padding="24" CornerRadius="12" Background="{ThemeResource ControlFillColorDefaultBrush}" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1">
                             <StackPanel Spacing="12">
                                 <TextBlock Text="Aparência" Style="{StaticResource SubtitleTextBlockStyle}" />

@@ -1,0 +1,29 @@
+<UserControl x:Class="TeamReminder.Windows.AccountControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Loaded="Account_Loaded">
+    <Border Padding="24" CornerRadius="12" Background="{ThemeResource ControlFillColorDefaultBrush}"
+        BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1">
+        <StackPanel Spacing="12">
+            <TextBlock Text="Minha conta" Style="{StaticResource SubtitleTextBlockStyle}" />
+            <TextBlock Text="Entre ou crie uma conta. Seus alarmes continuam funcionando neste computador."
+                TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <StackPanel x:Name="SignedOutPanel" Spacing="12">
+                <ToggleSwitch x:Name="RegisterToggle" Header="Criar uma nova conta" OnContent="Cadastro" OffContent="Login" Toggled="Register_Toggled" />
+                <TextBox x:Name="NameInput" Header="Nome" MaxLength="100" Visibility="Collapsed" />
+                <TextBox x:Name="EmailInput" Header="E-mail" MaxLength="254" InputScope="EmailSmtpAddress" />
+                <PasswordBox x:Name="PasswordInput" Header="Senha" MaxLength="128" />
+                <TextBlock x:Name="PasswordHint" Text="Use uma senha de 10 a 128 caracteres." Visibility="Collapsed" />
+                <PasswordBox x:Name="ConfirmInput" Header="Confirmar senha" MaxLength="128" Visibility="Collapsed" />
+                <Button x:Name="SubmitButton" Content="Entrar" Click="Submit_Click" Style="{StaticResource AccentButtonStyle}" />
+            </StackPanel>
+            <StackPanel x:Name="SignedInPanel" Visibility="Collapsed" Spacing="8">
+                <TextBlock x:Name="UserName" FontWeight="SemiBold" TextWrapping="Wrap" />
+                <TextBlock x:Name="UserEmail" TextWrapping="Wrap" />
+                <Button x:Name="LogoutButton" Content="Sair da conta" Click="Logout_Click" />
+            </StackPanel>
+            <ProgressBar x:Name="AccountProgress" IsIndeterminate="True" Visibility="Collapsed" />
+            <TextBlock x:Name="AccountStatus" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+            <Button x:Name="RetryButton" Content="Tentar reconectar" Visibility="Collapsed" Click="Retry_Click" />
+        </StackPanel>
+    </Border>
+</UserControl>
