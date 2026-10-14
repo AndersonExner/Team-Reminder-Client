@@ -1,10 +1,13 @@
+#ifndef AppVersion
+  #define AppVersion "0.1.0"
+#endif
 #ifndef PublishDir
   #define PublishDir "..\artifacts\publish"
 #endif
 [Setup]
 AppId={{B43E7F47-FDCE-49D2-B07C-87FA31111906}
 AppName=Team Reminder
-AppVersion=0.1.0
+AppVersion={#AppVersion}
 DefaultDirName={localappdata}\Programs\TeamReminder
 DefaultGroupName=Team Reminder
 PrivilegesRequired=lowest
@@ -12,7 +15,7 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.19041
 OutputDir=..\artifacts\installer
-OutputBaseFilename=TeamReminder-Setup-0.1.0-x64
+OutputBaseFilename=TeamReminder-Setup-{#AppVersion}-x64
 SetupIconFile=..\src\clients\TeamReminder.Windows\Assets\app.ico
 UninstallDisplayIcon={app}\TeamReminder.Windows.exe
 Compression=lzma2

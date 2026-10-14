@@ -18,9 +18,14 @@ public sealed class AccountApiException(string message, bool unauthorized = fals
 
 public sealed class AuthClient(HttpClient http)
 {
+    #if DEBUG
+    private const string DefaultServer = "http://localhost:5080/";
+#else
+    private const string DefaultServer = "https://team-reminder-api.onrender.com/";
+#endif
     public static Uri ServerAddress(string? configured)
     {
-        var uri = new Uri(string.IsNullOrWhiteSpace(configured) ? "http://localhost:5080/" : configured.Trim().TrimEnd('/') + "/");
+        var uri = new Uri(string.IsNullOrWhiteSpace(configured) ? DefaultServer : configured.Trim().TrimEnd('/') + "/");
         if (uri.Scheme != "https" && !(uri.Scheme == "http" && uri.IsLoopback))
             throw new ArgumentException("O servidor deve usar HTTPS; HTTP é permitido apenas no computador local.");
         if (!string.IsNullOrEmpty(uri.UserInfo) || !string.IsNullOrEmpty(uri.Query) || !string.IsNullOrEmpty(uri.Fragment))
