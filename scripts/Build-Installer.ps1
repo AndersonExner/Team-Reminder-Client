@@ -1,4 +1,4 @@
-param([string]$CompilerPath = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")
+param([ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version = "0.1.0", [string]$CompilerPath = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")
 $ErrorActionPreference = 'Stop'
 $repoPath = Split-Path -Parent $PSScriptRoot
 if (-not (Test-Path -LiteralPath $CompilerPath)) {
@@ -6,8 +6,8 @@ if (-not (Test-Path -LiteralPath $CompilerPath)) {
 }
 Push-Location $repoPath
 try {
-    dotnet publish src/clients/TeamReminder.Windows -c Release -p:Platform=x64 -r win-x64 --self-contained true -o artifacts/publish
+    dotnet publish src/clients/TeamReminder.Windows -c Release -p:Platform=x64 "-p:Version=$Version" -r win-x64 --self-contained true -o artifacts/publish
     if ($LASTEXITCODE -ne 0) { throw 'Falha na publicação.' }
-    & $CompilerPath installer/TeamReminder.iss
+    & $CompilerPath "/DAppVersion=$Version" installer/TeamReminder.iss
     if ($LASTEXITCODE -ne 0) { throw 'Falha na compilação do instalador.' }
 } finally { Pop-Location }
