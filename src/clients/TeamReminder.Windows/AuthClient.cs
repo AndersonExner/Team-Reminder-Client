@@ -44,6 +44,22 @@ public sealed class AuthClient(HttpClient http)
     public Task<PersonalAlarmChange> PushAlarmAsync(PendingAlarmWrite write, string accessToken) =>
         SendAsync<PersonalAlarmChange>(HttpMethod.Put, $"api/alarms/{write.Id}", write.Request, accessToken);
 
+    public Task<GroupSummary[]> GroupsAsync(string token) => SendAsync<GroupSummary[]>(HttpMethod.Get, "api/groups", token: token);
+    public Task<GroupDetails> GroupAsync(Guid id, string token) => SendAsync<GroupDetails>(HttpMethod.Get, $"api/groups/{id}", token: token);
+    public Task<GroupInvitationResponse[]> InvitationsAsync(string token) => SendAsync<GroupInvitationResponse[]>(HttpMethod.Get, "api/invitations", token: token);
+    public Task<GroupAuditResponse[]> GroupAuditAsync(Guid id, string token) => SendAsync<GroupAuditResponse[]>(HttpMethod.Get, $"api/groups/{id}/audit", token: token);
+    public Task<GroupSummary> CreateGroupAsync(GroupCreateRequest request, string token) => SendAsync<GroupSummary>(HttpMethod.Post, "api/groups", request, token);
+    public Task<object> EditGroupAsync(Guid id, GroupEditRequest request, string token) => SendAsync<object>(HttpMethod.Patch, $"api/groups/{id}", request, token);
+    public Task<object> DeleteGroupAsync(Guid id, long revision, string token) => SendAsync<object>(HttpMethod.Delete, $"api/groups/{id}?revision={revision}", token: token);
+    public Task<object> LeaveGroupAsync(Guid id, long revision, string token) => SendAsync<object>(HttpMethod.Post, $"api/groups/{id}/leave", new GroupRevisionRequest(revision), token);
+    public Task<object> TransferGroupAsync(Guid id, GroupTransferRequest request, string token) => SendAsync<object>(HttpMethod.Post, $"api/groups/{id}/transfer", request, token);
+    public Task<object> ChangeGroupRoleAsync(Guid id, Guid accountId, GroupRoleRequest request, string token) => SendAsync<object>(HttpMethod.Patch, $"api/groups/{id}/members/{accountId}", request, token);
+    public Task<object> RemoveGroupMemberAsync(Guid id, Guid accountId, long revision, string token) => SendAsync<object>(HttpMethod.Delete, $"api/groups/{id}/members/{accountId}?revision={revision}", token: token);
+    public Task<GroupInvitationResponse> InviteToGroupAsync(Guid id, GroupInviteRequest request, string token) => SendAsync<GroupInvitationResponse>(HttpMethod.Post, $"api/groups/{id}/invitations", request, token);
+    public Task<object> CancelGroupInvitationAsync(Guid id, Guid inviteId, long revision, string token) => SendAsync<object>(HttpMethod.Post, $"api/groups/{id}/invitations/{inviteId}/cancel", new GroupRevisionRequest(revision), token);
+    public Task<object> AcceptGroupInvitationAsync(Guid id, string token) => SendAsync<object>(HttpMethod.Post, $"api/invitations/{id}/accept", token: token);
+    public Task<object> DeclineGroupInvitationAsync(Guid id, string token) => SendAsync<object>(HttpMethod.Post, $"api/invitations/{id}/decline", token: token);
+
     private async Task<T> SendAsync<T>(HttpMethod method, string path, object? body = null, string? token = null)
     {
         using var request = new HttpRequestMessage(method, path);
@@ -65,8 +81,20 @@ public sealed class AuthClient(HttpClient http)
                 HttpStatusCode.Conflict => "Já existe uma conta com este e-mail.",
                 HttpStatusCode.TooManyRequests => "Muitas tentativas. Aguarde um minuto e tente novamente.",
                 HttpStatusCode.BadRequest => "Confira os dados informados.",
+                HttpStatusCode.Forbidden => "Você não tem permissão para esta ação.",
+                HttpStatusCode.NotFound => "O grupo ou convite não está mais disponível. Atualize a lista.",
                 _ => "O servidor não conseguiu concluir a solicitação. Tente novamente."
             };
+            if (path.StartsWith("api/groups", StringComparison.Ordinal) || path.StartsWith("api/invitations", StringComparison.Ordinal))
+            {
+                try
+                {
+                    using var problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+                    if (problem.RootElement.TryGetProperty("message", out var text) && text.ValueKind == JsonValueKind.String)
+                        message = text.GetString()!;
+                }
+                catch (JsonException) { }
+            }
             if (response.StatusCode == HttpStatusCode.BadRequest)
             {
                 try

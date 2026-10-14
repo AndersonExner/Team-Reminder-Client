@@ -41,7 +41,7 @@
             <TextBlock x:Name="TrayStatus" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
             <TextBlock Text="{Binding Message}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
         </StackPanel>
-        <TabView x:Name="MainTabs" Grid.Row="2" IsAddTabButtonVisible="False" CanDragTabs="False" CanReorderTabs="False" TabWidthMode="SizeToContent">
+        <TabView x:Name="MainTabs" Grid.Row="2" IsAddTabButtonVisible="False" CanDragTabs="False" CanReorderTabs="False" TabWidthMode="SizeToContent" SelectionChanged="MainTabs_SelectionChanged">
             <TabViewItem Header="Alarmes" IsClosable="False">
                 <TabViewItem.IconSource><SymbolIconSource Symbol="Clock" /></TabViewItem.IconSource>
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
@@ -132,6 +132,10 @@
                         </Border>
                     </StackPanel>
                 </ScrollViewer>
+            </TabViewItem>
+            <TabViewItem Header="Grupos" IsClosable="False">
+                <TabViewItem.IconSource><SymbolIconSource Symbol="People" /></TabViewItem.IconSource>
+                <local:GroupsControl x:Name="GroupsPanel" />
             </TabViewItem>
         </TabView>
     </Grid>

@@ -47,6 +47,7 @@ public sealed partial class MainWindow : Window
             if (dialogOpen || viewModel.IsBusy) return;
             await viewModel.LoadAsync();
         }, () => !dialogOpen && !viewModel.IsBusy);
+        GroupsPanel.Configure(AccountPanel);
         viewModel.LaunchLinkAsync = async uri => await global::Windows.System.Launcher.LaunchUriAsync(uri);
         DefaultSoundEditor.Configure(sounds, WinRT.Interop.WindowNative.GetWindowHandle(this), sounds.DefaultSound, allowDefault: false);
         DefaultSoundEditor.SelectionChanged += DefaultSound_Changed;
@@ -95,6 +96,13 @@ public sealed partial class MainWindow : Window
     }
 
     public Task InitializeAccountAsync() => AccountPanel.StartAsync();
+
+    private async void MainTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (GroupsPanel is null) return;
+        GroupsPanel.IsActive = MainTabs.SelectedIndex == 2;
+        if (GroupsPanel.IsActive) await GroupsPanel.RefreshAsync();
+    }
 
     public void ConfigureEarlyReminders(IAlarmRepository repository, IEarlyReminderReceiptStore receipts, TimeProvider clock)
     {

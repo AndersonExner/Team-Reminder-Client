@@ -55,9 +55,29 @@ HTTP é aceito somente em loopback. A sessão é salva em `%LOCALAPPDATA%\TeamRe
 - Próxima ocorrência e registro de disparo são locais a cada dispositivo. Atualizar apenas título/link/som não repete uma ocorrência já concluída nesse computador. Cada computador ativo pode notificar a mesma ocorrência; não há eleição de dispositivo único.
 - Um alarme recebido pela primeira vez com atraso superior a cinco minutos fica no histórico sem disparar; recorrentes recebidos com data inicial passada avançam à próxima ocorrência futura. Alarmes já em cache mantêm o comportamento de atraso existente.
 - Sons personalizados e seus arquivos ficam no computador. No servidor, usam o padrão do aplicativo; outro computador recebe o som padrão. O arquivo personalizado existente permanece aplicado no dispositivo de origem.
-- A API limita cada conta a 1000 registros, incluindo exclusões mantidas para sincronização. Grupos, organizações e sincronização de arquivos de áudio ainda não fazem parte desta etapa.
+- A API limita cada conta a 1000 registros, incluindo exclusões mantidas para sincronização. A gestão de grupos está disponível na aba Grupos; alarmes compartilhados, organizações e sincronização de arquivos de áudio ficam para as próximas etapas.
 
 Validação desta etapa: 112 testes do núcleo e 43 testes de armazenamento local, além do fluxo entre dois caches usando a API e PostgreSQL reais. A inspeção visual completa da interface ainda está pendente.
+
+## Grupos e convites
+
+Abra **Grupos** depois de entrar na conta. A aba consulta seus grupos e convites ao ser aberta; **Atualizar grupos e convites** busca mudanças feitas por outros participantes. Estas operações exigem conexão e não entram na fila offline dos alarmes pessoais.
+
+1. **Criar grupo** pede nome (até 100 caracteres) e descrição opcional (até 500). O criador se torna proprietário.
+2. Selecione o grupo e informe o e-mail de uma conta já cadastrada para **Enviar convite**. O convite aparece no aplicativo do destinatário, tem validade de sete dias e exige aceite. Esta versão não envia e-mails.
+3. Em **Convites recebidos**, selecione o convite para aceitar ou recusar. Quem aceita entra como membro. Aceitar novamente não duplica a participação.
+4. Proprietários e administradores podem editar o grupo, convidar, cancelar convites, remover participantes e alterar membros para administradores ou administradores para membros. O proprietário não pode ser removido nem rebaixado por esse caminho.
+5. O proprietário pode **Transferir propriedade** a um participante selecionado; ele próprio passa a administrador. É obrigatório transferir antes de sair. Apenas o proprietário pode excluir o grupo.
+6. Remover um administrador, rebaixá-lo ou permitir sua saída cancela os convites pendentes enviados por ele. Um convite já aceito não pode ser reutilizado para voltar após remoção ou saída; é necessário novo convite.
+7. **Consultar histórico** mostra as últimas 50 ações administrativas aos administradores e ao proprietário. Membros consultam os participantes, mas não o histórico nem os convites enviados.
+
+A interface apresenta ações conforme o papel; a API valida novamente a permissão a cada requisição. Se outro usuário alterar o grupo, uma operação baseada em versão antiga é recusada e pede atualização. Trocar de conta limpa os grupos e participantes exibidos.
+
+Limites iniciais: até 20 grupos como proprietário, 100 grupos por participante, 100 participantes por grupo e 100 convites pendentes por grupo/destinatário. Excluir um grupo o torna indisponível para todos e cancela seus convites.
+
+Esta entrega prepara grupos, participação e permissões. Publicação e recebimento de alarmes compartilhados pelo grupo são a próxima etapa; os alarmes pessoais continuam com o fluxo de sincronização existente.
+
+Validação: build WinUI x64 sem erros; 118 testes do núcleo e 43 de armazenamento local, além do fluxo integrado usando o cliente HTTP real com proprietário, administrador e membro. A inspeção visual completa da nova aba ainda está pendente.
 
 ## Usar os alarmes
 
