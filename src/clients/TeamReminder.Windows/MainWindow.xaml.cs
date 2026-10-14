@@ -34,6 +34,19 @@ public sealed partial class MainWindow : Window
         this.viewModel = viewModel;
         this.sounds = sounds;
         this.repository = repository;
+        AccountPanel.Configure((AccountAlarmRepository)repository, async scopeChanged =>
+        {
+            if (scopeChanged)
+            {
+                AccountBadge.Text = ((AccountAlarmRepository)repository).Scope is null ? "Local" : "Minha conta";
+                currentEditor?.Hide();
+                while (viewModel.IsBusy) await Task.Delay(20);
+                viewModel.DismissAlertsCommand.Execute(null);
+                viewModel.DiscardForm();
+            }
+            if (dialogOpen || viewModel.IsBusy) return;
+            await viewModel.LoadAsync();
+        }, () => !dialogOpen && !viewModel.IsBusy);
         viewModel.LaunchLinkAsync = async uri => await global::Windows.System.Launcher.LaunchUriAsync(uri);
         DefaultSoundEditor.Configure(sounds, WinRT.Interop.WindowNative.GetWindowHandle(this), sounds.DefaultSound, allowDefault: false);
         DefaultSoundEditor.SelectionChanged += DefaultSound_Changed;
@@ -78,8 +91,10 @@ public sealed partial class MainWindow : Window
             await viewModel.ProcessEarlyAsync();
             tray?.Update();
         };
-        Closed += (_, _) => { DefaultSoundEditor.Dispose(); currentEditor?.DisposeSoundEditor(); timer.Stop(); tray?.Dispose(); tray = null; };
+        Closed += (_, _) => { AccountPanel.Shutdown(); DefaultSoundEditor.Dispose(); currentEditor?.DisposeSoundEditor(); timer.Stop(); tray?.Dispose(); tray = null; };
     }
+
+    public Task InitializeAccountAsync() => AccountPanel.StartAsync();
 
     public void ConfigureEarlyReminders(IAlarmRepository repository, IEarlyReminderReceiptStore receipts, TimeProvider clock)
     {
@@ -152,7 +167,7 @@ public sealed partial class MainWindow : Window
         try
         {
             // A fresh successful read is required; never clean from an empty UI after a read failure.
-            var alarms = await repository.ListAsync();
+            var alarms = await ((AccountAlarmRepository)repository).ListAllCachedAsync();
             if (DefaultSoundEditor.IsBusy || dialogOpen) return;
             await sounds.CleanupAsync(alarms.Select(a => a.Sound).Append(DefaultSoundEditor.Selection), releaseImports);
         }
@@ -226,6 +241,7 @@ public sealed partial class MainWindow : Window
         {
             viewModel.DiscardForm();
             dialogOpen = false;
+            await viewModel.LoadAsync();
             await CleanSoundsAsync(importedIds);
         }
     }

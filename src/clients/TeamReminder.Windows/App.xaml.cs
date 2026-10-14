@@ -7,7 +7,7 @@ namespace TeamReminder.Windows;
 public partial class App : Application
 {
     private Mutex? instanceMutex;
-    private LiteDbAlarmRepository? repository;
+    private AccountAlarmRepository? repository;
     private MainWindow? window;
     private WindowsAlarmNotifier? notifier;
     private AlarmSoundPlayer? soundPlayer;
@@ -51,7 +51,7 @@ public partial class App : Application
 #if DEBUG
         dataPath = Environment.GetEnvironmentVariable("TEAMREMINDER_TEST_DATA_FILE") ?? dataPath;
 #endif
-        repository = new LiteDbAlarmRepository(dataPath);
+        repository = new AccountAlarmRepository(dataPath);
         var clock = TimeProvider.System;
         var viewModel = new AlarmsViewModel(new AlarmService(repository, clock), clock);
         var localRoot = Path.GetDirectoryName(Path.GetDirectoryName(dataPath)!)!;
@@ -69,6 +69,7 @@ public partial class App : Application
         viewModel.ConfigureScheduler(new AlarmScheduler(repository, notifier, clock));
         notifier.Initialize();
         window.ConfigureEarlyReminders(repository, repository, clock);
+        await window.InitializeAccountAsync();
         window.Closed += (_, _) =>
         {
             activationCancellation.Cancel();
