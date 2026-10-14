@@ -17,6 +17,7 @@ public sealed partial class MainWindow : Window
     private bool startupReady;
     private bool exiting;
     private bool dialogOpen;
+    private bool editorPreparing;
     private bool advanceReady;
     private int? advanceMinutes;
     private static readonly int?[] AdvanceOptions = [null, 5, 10, 15, 30, 60];
@@ -39,8 +40,8 @@ public sealed partial class MainWindow : Window
             if (scopeChanged)
             {
                 AccountBadge.Text = ((AccountAlarmRepository)repository).Scope is null ? "Local" : "Minha conta";
-                currentEditor?.Hide();
                 while (viewModel.IsBusy) await Task.Delay(20);
+                currentEditor?.Hide();
                 viewModel.DismissAlertsCommand.Execute(null);
                 viewModel.DiscardForm();
             }
@@ -48,6 +49,7 @@ public sealed partial class MainWindow : Window
             await viewModel.LoadAsync();
         }, () => !dialogOpen && !viewModel.IsBusy);
         GroupsPanel.Configure(AccountPanel);
+        viewModel.ConfigureGroupPublisher(new GroupAlarmPublisher(AccountPanel,(AccountAlarmRepository)repository));
         viewModel.LaunchLinkAsync = async uri => await global::Windows.System.Launcher.LaunchUriAsync(uri);
         DefaultSoundEditor.Configure(sounds, WinRT.Interop.WindowNative.GetWindowHandle(this), sounds.DefaultSound, allowDefault: false);
         DefaultSoundEditor.SelectionChanged += DefaultSound_Changed;
@@ -220,8 +222,21 @@ public sealed partial class MainWindow : Window
 
     private async Task ShowEditorAsync(bool edit)
     {
-        if (dialogOpen || !viewModel.CanEdit) return;
+        if (dialogOpen || editorPreparing || !viewModel.CanEdit) return;
         if (edit && !viewModel.CanEditSelected) return;
+        editorPreparing=true;
+        try
+        {
+            viewModel.ReportGroupSelection("");
+            if(AccountPanel.CurrentAccountId is not null)
+            {
+                try { viewModel.SetDestinations(await AccountPanel.ExecuteAuthenticatedAsync((api,token)=>api.GroupsAsync(token))); }
+                catch(Exception){viewModel.SetDestinations([]);viewModel.ReportGroupSelection("Não foi possível consultar seus grupos. Você ainda pode criar um alarme pessoal; reabra esta janela para tentar novamente.");}
+            }
+            else {viewModel.SetDestinations([]);viewModel.ReportGroupSelection("Entre na conta para publicar alarmes nos grupos em que você é administrador.");}
+        }
+        finally{editorPreparing=false;}
+        if(!viewModel.CanEdit)return;
         dialogOpen = true;
         IReadOnlyList<Guid> importedIds = [];
         try
@@ -300,7 +315,7 @@ public sealed partial class MainWindow : Window
             XamlRoot = Root.XamlRoot,
             RequestedTheme = Root.RequestedTheme,
             Title = "Excluir alarme?",
-            Content = $"{alarm.Title}\n{(alarm.DueAtUtc ?? alarm.ScheduledAtUtc).ToLocalTime():dd/MM/yyyy HH:mm}\n\nEsta exclusão não pode ser desfeita.",
+            Content = (alarm.GroupId is null ? "" : $"Este alarme será excluído para todos os participantes de {alarm.GroupName}.\\n\\n") + $"{alarm.Title}\n{(alarm.DueAtUtc ?? alarm.ScheduledAtUtc).ToLocalTime():dd/MM/yyyy HH:mm}\n\nEsta exclusão não pode ser desfeita.",
             PrimaryButtonText = "Excluir",
             CloseButtonText = "Cancelar",
             DefaultButton = ContentDialogButton.Close

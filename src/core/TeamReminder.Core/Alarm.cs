@@ -13,6 +13,10 @@ public sealed record Alarm(Guid Id, string Title, DateTime ScheduledAtUtc,
     DateTime CreatedAtUtc, string TimeZoneId)
 {
     public string? CacheScope { get; init; }
+    public Guid? GroupId { get; init; }
+    public string? GroupName { get; init; }
+    public long GroupVersion { get; init; }
+    public bool CanManageGroup { get; init; }
     public AlarmLink? Link { get; init; }
     public AlarmSound Sound { get; init; } = AlarmSound.Default;
     public RecurrenceKind Recurrence { get; init; }
@@ -48,11 +52,12 @@ public sealed class AlarmNotFoundException() : Exception(
 
 public sealed class AlarmService(IAlarmRepository repository, TimeProvider clock)
 {
+    public IGroupAlarmPublisher? GroupPublisher { get; set; }
     public Task<IReadOnlyList<Alarm>> ListAsync() => repository.ListAsync();
 
     public async Task<Alarm> CreateAsync(string? title, DateTime? localDate,
         TimeSpan? localTime, TimeZoneInfo zone, RecurrenceKind recurrence = RecurrenceKind.Once,
-        WeekDays days = WeekDays.None, AlarmSound? sound = null, string? linkUrl = null, string? linkLabel = null)
+        WeekDays days = WeekDays.None, AlarmSound? sound = null, string? linkUrl = null, string? linkLabel = null, Guid? groupId = null, Guid? draftId = null)
     {
         sound ??= AlarmSound.Default;
         sound.Validate();
@@ -60,7 +65,7 @@ public sealed class AlarmService(IAlarmRepository repository, TimeProvider clock
         var (normalizedTitle, utc) = Validate(title, localDate, localTime, zone, recurrence, days);
         var now = clock.GetUtcNow().UtcDateTime;
         now = new DateTime(now.Ticks - now.Ticks % TimeSpan.TicksPerMillisecond, DateTimeKind.Utc);
-        var alarm = new Alarm(Guid.NewGuid(), normalizedTitle, utc, now, zone.Id)
+        var alarm = new Alarm(draftId ?? Guid.NewGuid(), normalizedTitle, utc, now, zone.Id)
         {
             CacheScope = (repository as IAlarmScopeProvider)?.CurrentScope,
             Sound = sound, Link = link,
@@ -68,6 +73,11 @@ public sealed class AlarmService(IAlarmRepository repository, TimeProvider clock
             Days = recurrence == RecurrenceKind.Weekly ? days : WeekDays.None,
             NextOccurrenceUtc = utc
         };
+        if (groupId is { } destination)
+        {
+            if (sound.Kind == AlarmSoundKind.Custom) throw new AlarmValidationException("Sound", "Para o grupo, escolha um som integrado ou o padrão de cada computador.");
+            return await (GroupPublisher ?? throw new GroupAlarmOperationException("Entre na conta para publicar no grupo.")).SaveAsync(destination, alarm, 0);
+        }
         await repository.InsertAsync(alarm);
         return alarm;
     }
@@ -87,6 +97,12 @@ public sealed class AlarmService(IAlarmRepository repository, TimeProvider clock
             Recurrence = recurrence, Days = recurrence == RecurrenceKind.Weekly ? days : WeekDays.None,
             NextOccurrenceUtc = utc, LastDeliveredOccurrenceUtc = null
         };
+        if (original.GroupId is { } destination)
+        {
+            if (!original.CanManageGroup) throw new GroupAlarmOperationException("Somente administradores do grupo podem alterar este alarme.");
+            if (sound.Kind == AlarmSoundKind.Custom) throw new AlarmValidationException("Sound", "Para o grupo, escolha um som integrado ou o padrão de cada computador.");
+            return await (GroupPublisher ?? throw new GroupAlarmOperationException("Entre na conta para alterar o alarme do grupo.")).SaveAsync(destination, updated, original.GroupVersion);
+        }
         if (!await repository.UpdateAsync(original, updated)) throw new AlarmNotFoundException();
         return updated;
     }
@@ -98,6 +114,12 @@ public sealed class AlarmService(IAlarmRepository repository, TimeProvider clock
 
     public async Task DeleteAsync(Alarm expected)
     {
+        if (expected.GroupId is not null)
+        {
+            if (!expected.CanManageGroup) throw new GroupAlarmOperationException("Somente administradores do grupo podem excluir este alarme.");
+            await (GroupPublisher ?? throw new GroupAlarmOperationException("Entre na conta para excluir o alarme do grupo.")).DeleteAsync(expected);
+            return;
+        }
         if (!await repository.DeleteAsync(expected)) throw new AlarmNotFoundException();
     }
 

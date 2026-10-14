@@ -133,7 +133,7 @@ public class EditDeleteTests
         Assert.False(vm.IsEditing);
         Assert.Equal("", vm.Title);
         Assert.Equal(Now.Date, vm.SelectedDate!.Value.Date);
-        Assert.Equal(Now.TimeOfDay, vm.SelectedTime);
+        Assert.Equal(Now.AddMinutes(5).TimeOfDay, vm.SelectedTime);
     }
 
     [Fact]

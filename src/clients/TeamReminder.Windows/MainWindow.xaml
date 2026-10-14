@@ -69,6 +69,7 @@
                                                 <SymbolIcon Symbol="Clock" VerticalAlignment="Top" Margin="0,4,0,0" Foreground="{ThemeResource SystemControlHighlightAccentBrush}" />
                                                 <StackPanel Grid.Column="1" Spacing="5">
                                                     <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                                    <TextBlock Text="{Binding Origin}" FontSize="12" Foreground="{ThemeResource SystemControlHighlightAccentBrush}" TextWrapping="Wrap" />
                                                     <TextBlock Text="{Binding Schedule}" />
                                                     <TextBlock Text="{Binding RecurrenceText}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                                     <TextBlock Text="{Binding SoundText}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />

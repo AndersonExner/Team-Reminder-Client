@@ -5,7 +5,7 @@ namespace TeamReminder.Core.Tests;
 public class ModalWorkflowTests
 {
     [Fact]
-    public async Task OpeningCreateAfterMidnightUsesCurrentLocalDateAndMinute()
+    public async Task OpeningCreateAfterMidnightSuggestsFutureLocalTime()
     {
         var clock = new FixedClock(new DateTime(2026, 10, 11, 23, 58, 45, DateTimeKind.Utc));
         var repo = new MemoryRepository();
@@ -18,7 +18,7 @@ public class ModalWorkflowTests
         clock.Utc = new DateTime(2026, 10, 12, 21, 7, 59, DateTimeKind.Utc);
         vm.BeginCreate();
         Assert.Equal(new DateTime(2026, 10, 13), vm.SelectedDate!.Value.Date);
-        Assert.Equal(new TimeSpan(0, 7, 0), vm.SelectedTime);
+        Assert.Equal(new TimeSpan(0, 12, 0), vm.SelectedTime);
         Assert.Empty(vm.Title);
         Assert.Equal(RecurrenceKind.Once, vm.Recurrence);
         Assert.All(vm.DayOptions, day => Assert.False(day.IsSelected));
@@ -35,7 +35,8 @@ public class ModalWorkflowTests
         await vm.LoadAsync();
         vm.BeginCreate();
         vm.Title = "Consulta";
-        Assert.False(await vm.SaveAsync()); // Default current minute is not in the future.
+        vm.SelectedTime = new TimeSpan(now.Hour, now.Minute, 0);
+        Assert.False(await vm.SaveAsync()); // An explicitly chosen past minute remains invalid.
         Assert.NotEmpty(vm.ScheduleError);
         Assert.Equal("Consulta", vm.Title);
         vm.SelectedTime = TimeSpan.FromHours(13);
