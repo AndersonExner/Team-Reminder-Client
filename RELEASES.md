@@ -10,3 +10,5 @@ Após integrar o workflow na main, crie uma tag vMAJOR.MINOR.PATCH no commit que
 A página da API consulta a última release estável pública e oferece /download/windows. O repositório e a release precisam ser públicos. Pode levar até cinco minutos para a nova versão aparecer devido ao cache.
 
 Instalação por usuário em Windows 10 2004 ou superior, x64. A assinatura digital do instalador não está configurada.
+
+As releases incluem release.json com versão, data e endereço do instalador. O servidor lê esse asset público pela URL releases/latest/download/release.json, evitando limites da API anônima do GitHub em IPs compartilhados.

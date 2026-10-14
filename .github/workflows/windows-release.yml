@@ -36,5 +36,16 @@ jobs:
         run: |
           $installer = "artifacts/installer/TeamReminder-Setup-$env:APP_VERSION-x64.exe"
           if (!(Test-Path -LiteralPath $installer)) { throw 'Instalador ausente.' }
-          gh release create "$env:RELEASE_TAG" "$installer" --verify-tag --title "Team Reminder $env:APP_VERSION" --generate-notes
+          $manifest = @{
+            tag_name = $env:RELEASE_TAG
+            published_at = [DateTimeOffset]::UtcNow.ToString("o")
+            draft = $false
+            prerelease = $false
+            assets = @(@{
+              name = "TeamReminder-Setup-$env:APP_VERSION-x64.exe"
+              browser_download_url = "https://github.com/AndersonExner/Team-Reminder-Client/releases/download/$env:RELEASE_TAG/TeamReminder-Setup-$env:APP_VERSION-x64.exe"
+            })
+          } | ConvertTo-Json -Depth 5
+          [IO.File]::WriteAllText("release.json", $manifest)
+          gh release create "$env:RELEASE_TAG" "$installer" release.json --verify-tag --title "Team Reminder $env:APP_VERSION" --generate-notes
           if ($LASTEXITCODE -ne 0) { throw 'Falha ao publicar release.' }
