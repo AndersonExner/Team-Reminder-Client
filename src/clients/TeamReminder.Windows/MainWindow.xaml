@@ -18,7 +18,7 @@
             </StackPanel>
             <Border Grid.Column="1" VerticalAlignment="Center" Padding="12,6" CornerRadius="16"
                 Background="{ThemeResource ControlFillColorSecondaryBrush}">
-                <TextBlock Text="Local" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                <TextBlock x:Name="AccountBadge" Text="Local" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
             </Border>
         </Grid>
         <StackPanel Grid.Row="1" Spacing="6">
@@ -89,7 +89,7 @@
                 <TabViewItem.IconSource><SymbolIconSource Symbol="Setting" /></TabViewItem.IconSource>
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="0,16,0,0" Spacing="20" MaxWidth="680" HorizontalAlignment="Left">
-                        <local:AccountControl />
+                        <local:AccountControl x:Name="AccountPanel" />
                         <Border Padding="24" CornerRadius="12" Background="{ThemeResource ControlFillColorDefaultBrush}" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1">
                             <StackPanel Spacing="12">
                                 <TextBlock Text="Aparência" Style="{StaticResource SubtitleTextBlockStyle}" />

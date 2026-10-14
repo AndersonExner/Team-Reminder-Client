@@ -3,7 +3,7 @@ using TeamReminder.Core;
 
 namespace TeamReminder.Local;
 
-public sealed class LiteDbAlarmRepository(string filePath) : IAlarmRepository, IEarlyReminderReceiptStore, IDisposable
+public sealed partial class LiteDbAlarmRepository(string filePath, bool synchronize = false, TimeProvider? clock = null) : IAlarmRepository, IEarlyReminderReceiptStore, IDisposable
 {
     private readonly object gate = new();
     private LiteDatabase? database;
@@ -40,7 +40,7 @@ public sealed class LiteDbAlarmRepository(string filePath) : IAlarmRepository, I
 
     public Task InsertAsync(Alarm alarm) => Task.Run(() =>
     {
-        lock (gate) { Collection().Insert(ToDocument(alarm)); }
+        lock (gate) { InTransaction(() => { Collection().Insert(ToDocument(alarm)); QueueChange(alarm.Id, alarm, false); return true; }); }
     });
 
     public Task<IReadOnlyList<Alarm>> ListAsync() => Task.Run<IReadOnlyList<Alarm>>(() =>
@@ -61,7 +61,7 @@ public sealed class LiteDbAlarmRepository(string filePath) : IAlarmRepository, I
             if (existing is null) return false;
             var updated = ToDocument(alarm);
             updated.CreatedAtUtc = existing.CreatedAtUtc;
-            return collection.Update(updated);
+            return InTransaction(() => { var success = collection.Update(updated); if (success) QueueChange(alarm.Id, ToAlarm(updated), false); return success; });
         }
     });
 
@@ -110,9 +110,16 @@ public sealed class LiteDbAlarmRepository(string filePath) : IAlarmRepository, I
     {
         lock (gate)
         {
-            var deleted = Collection().Delete(id);
-            if (deleted) database!.GetCollection<EarlyReminderReceipt>("earlyReminderReceipts").Delete(id);
-            return deleted;
+            return InTransaction(() =>
+            {
+                var deleted = Collection().Delete(id);
+                if (deleted)
+                {
+                    database!.GetCollection<EarlyReminderReceipt>("earlyReminderReceipts").Delete(id);
+                    QueueChange(id, null, true);
+                }
+                return deleted;
+            });
         }
     });
 

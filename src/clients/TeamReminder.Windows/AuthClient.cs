@@ -3,6 +3,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using TeamReminder.Core;
 
 namespace TeamReminder.Windows;
 
@@ -38,6 +39,11 @@ public sealed class AuthClient(HttpClient http)
     public async Task LogoutAsync(string accessToken) =>
         await SendAsync<object>(HttpMethod.Post, "api/auth/logout", token: accessToken);
 
+    public Task<AlarmChangeSet> PullAlarmsAsync(long cursor, string accessToken) =>
+        SendAsync<AlarmChangeSet>(HttpMethod.Get, $"api/sync?since={cursor}", token: accessToken);
+    public Task<PersonalAlarmChange> PushAlarmAsync(PendingAlarmWrite write, string accessToken) =>
+        SendAsync<PersonalAlarmChange>(HttpMethod.Put, $"api/alarms/{write.Id}", write.Request, accessToken);
+
     private async Task<T> SendAsync<T>(HttpMethod method, string path, object? body = null, string? token = null)
     {
         using var request = new HttpRequestMessage(method, path);
@@ -46,6 +52,13 @@ public sealed class AuthClient(HttpClient http)
         using var response = await http.SendAsync(request);
         if (!response.IsSuccessStatusCode)
         {
+            if (response.StatusCode == HttpStatusCode.Conflict && path.StartsWith("api/alarms/", StringComparison.Ordinal))
+            {
+                using var conflict = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+                if (conflict.RootElement.TryGetProperty("current", out var current) && current.ValueKind != JsonValueKind.Null)
+                    throw new AlarmSyncConflictException(current.Deserialize<PersonalAlarmChange>(new JsonSerializerOptions(JsonSerializerDefaults.Web))!);
+                throw new AccountApiException("O alarme não está mais disponível. Tente sincronizar novamente.");
+            }
             var message = response.StatusCode switch
             {
                 HttpStatusCode.Unauthorized => "E-mail ou senha inválidos, ou sessão expirada. Entre novamente.",

@@ -33,7 +33,7 @@ Encerre pelo menu Sair da bandeja antes de compilar novamente, para evitar DLLs 
 
 ## Conta e servidor
 
-Em **Configurações > Minha conta**, entre com e-mail e senha ou ative **Criar uma nova conta** para informar nome, e-mail, senha e confirmação. O cadastro já conecta a conta. A senha deve ter de 10 a 128 caracteres. **Sair da conta** encerra a sessão atual; os alarmes locais continuam ativos.
+Em **Configurações > Minha conta**, entre com e-mail e senha ou ative **Criar uma nova conta** para informar nome, e-mail, senha e confirmação. O cadastro já conecta a conta. A senha deve ter de 10 a 128 caracteres. Sem login, o aplicativo usa os alarmes locais originais; com login, usa o cache separado da conta. Ao sair, os alarmes da conta ficam preservados para o próximo login e o aplicativo volta aos alarmes locais.
 
 A API é desenvolvida no repositório `E:\ProjetosPessoais\Team-Reminder-Server`. Inicie o Docker Compose daquele repositório antes de testar cadastro e login. O endereço local padrão é `http://localhost:5080/`. Para outra instalação, configure `TEAMREMINDER_API_URL` antes de abrir o aplicativo:
 
@@ -42,9 +42,22 @@ $env:TEAMREMINDER_API_URL = 'https://seu-servidor.example.com/'
 dotnet run --project src/clients/TeamReminder.Windows -p:Platform=x64
 ```
 
-HTTP é aceito somente em loopback. A sessão é salva em `%LOCALAPPDATA%\TeamReminder\Account\session.bin`, protegida para o usuário atual pelo Windows e vinculada ao endereço da API. Nenhuma senha é armazenada. Ao abrir a área de conta, o aplicativo valida a sessão e renova os tokens quando necessário. Se o servidor estiver indisponível, é possível tentar reconectar, e o agendamento local segue funcionando. Logout sem conexão limpa a sessão local e informa que não conseguiu revogá-la no servidor.
+HTTP é aceito somente em loopback. A sessão é salva em `%LOCALAPPDATA%\TeamReminder\Account\session.bin`, protegida para o usuário atual pelo Windows e vinculada ao endereço da API. Nenhuma senha é armazenada. Ao iniciar, o aplicativo carrega o cache da sessão salva antes de consultar a rede e renova os tokens quando necessário. Se o servidor estiver indisponível, é possível tentar reconectar, e o agendamento em cache segue funcionando. Logout sem conexão limpa a sessão local e informa que não conseguiu revogá-la no servidor.
 
-Esta etapa implementa somente autenticação e cadastro. Os alarmes ainda não são vinculados à conta nem sincronizados. Trocar de conta mantém os alarmes deste computador.
+### Sincronização dos alarmes pessoais
+
+- Alarmes criados, editados ou excluídos na conta são gravados primeiro no cache local e em uma fila persistente. O disparo não depende da rede.
+- O aplicativo sincroniza após conectar e a cada minuto enquanto estiver aberto, inclusive na bandeja. **Sincronizar agora** permite antecipar a consulta. A sincronização espera o fechamento do editor antes de aplicar dados remotos.
+- Cada combinação de servidor e usuário tem um banco em `%LOCALAPPDATA%\TeamReminder\Data\Accounts\`. Trocar de conta ou servidor não mistura cache, fila, cursor ou registros de disparo. Sem sessão válida, o aplicativo volta aos alarmes locais; os caches das contas permanecem no disco. Os arquivos LiteDB não são criptografados: o isolamento é funcional dentro do app, não uma barreira contra acesso direto ao disco.
+- **Adicionar meus alarmes locais à conta** exige confirmação e copia os alarmes existentes sem apagar os originais. Repetir a importação não duplica IDs já presentes na conta.
+- Alterações simultâneas são preservadas até uma escolha em **Revisar alterações simultâneas**: usar a versão do servidor ou manter/enviar a edição local. Conflitos não sobrescrevem silenciosamente os dados. A versão local continua agendada enquanto aguarda revisão.
+- Exclusões são propagadas como registros de exclusão. As alterações têm versão e identificador de operação para permitir nova tentativa após falha de rede sem duplicar alarmes.
+- Próxima ocorrência e registro de disparo são locais a cada dispositivo. Atualizar apenas título/link/som não repete uma ocorrência já concluída nesse computador. Cada computador ativo pode notificar a mesma ocorrência; não há eleição de dispositivo único.
+- Um alarme recebido pela primeira vez com atraso superior a cinco minutos fica no histórico sem disparar; recorrentes recebidos com data inicial passada avançam à próxima ocorrência futura. Alarmes já em cache mantêm o comportamento de atraso existente.
+- Sons personalizados e seus arquivos ficam no computador. No servidor, usam o padrão do aplicativo; outro computador recebe o som padrão. O arquivo personalizado existente permanece aplicado no dispositivo de origem.
+- A API limita cada conta a 1000 registros, incluindo exclusões mantidas para sincronização. Grupos, organizações e sincronização de arquivos de áudio ainda não fazem parte desta etapa.
+
+Validação desta etapa: 112 testes do núcleo e 43 testes de armazenamento local, além do fluxo entre dois caches usando a API e PostgreSQL reais. A inspeção visual completa da interface ainda está pendente.
 
 ## Usar os alarmes
 

@@ -12,6 +12,7 @@ public enum WeekDays
 public sealed record Alarm(Guid Id, string Title, DateTime ScheduledAtUtc,
     DateTime CreatedAtUtc, string TimeZoneId)
 {
+    public string? CacheScope { get; init; }
     public AlarmLink? Link { get; init; }
     public AlarmSound Sound { get; init; } = AlarmSound.Default;
     public RecurrenceKind Recurrence { get; init; }
@@ -29,9 +30,13 @@ public interface IAlarmRepository
     Task InsertAsync(Alarm alarm);
     Task<IReadOnlyList<Alarm>> ListAsync();
     Task<bool> UpdateAsync(Alarm alarm);
+    Task<bool> UpdateAsync(Alarm original, Alarm updated) => UpdateAsync(updated);
     Task<bool> DeleteAsync(Guid id);
+    Task<bool> DeleteAsync(Alarm expected) => DeleteAsync(expected.Id);
     Task<bool> CompleteOccurrenceAsync(Alarm expected, DateTime? nextOccurrenceUtc);
 }
+
+public interface IAlarmScopeProvider { string? CurrentScope { get; } }
 
 public sealed class AlarmValidationException(string field, string message) : Exception(message)
 {
@@ -57,6 +62,7 @@ public sealed class AlarmService(IAlarmRepository repository, TimeProvider clock
         now = new DateTime(now.Ticks - now.Ticks % TimeSpan.TicksPerMillisecond, DateTimeKind.Utc);
         var alarm = new Alarm(Guid.NewGuid(), normalizedTitle, utc, now, zone.Id)
         {
+            CacheScope = (repository as IAlarmScopeProvider)?.CurrentScope,
             Sound = sound, Link = link,
             Recurrence = recurrence,
             Days = recurrence == RecurrenceKind.Weekly ? days : WeekDays.None,
@@ -81,13 +87,18 @@ public sealed class AlarmService(IAlarmRepository repository, TimeProvider clock
             Recurrence = recurrence, Days = recurrence == RecurrenceKind.Weekly ? days : WeekDays.None,
             NextOccurrenceUtc = utc, LastDeliveredOccurrenceUtc = null
         };
-        if (!await repository.UpdateAsync(updated)) throw new AlarmNotFoundException();
+        if (!await repository.UpdateAsync(original, updated)) throw new AlarmNotFoundException();
         return updated;
     }
 
     public async Task DeleteAsync(Guid id)
     {
         if (!await repository.DeleteAsync(id)) throw new AlarmNotFoundException();
+    }
+
+    public async Task DeleteAsync(Alarm expected)
+    {
+        if (!await repository.DeleteAsync(expected)) throw new AlarmNotFoundException();
     }
 
     private (string Title, DateTime Utc) Validate(string? title, DateTime? localDate,

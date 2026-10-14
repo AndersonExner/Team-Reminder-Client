@@ -20,6 +20,11 @@
                 <TextBlock x:Name="UserName" FontWeight="SemiBold" TextWrapping="Wrap" />
                 <TextBlock x:Name="UserEmail" TextWrapping="Wrap" />
                 <Button x:Name="LogoutButton" Content="Sair da conta" Click="Logout_Click" />
+                <TextBlock Text="Os alarmes desta conta são salvos no servidor e neste computador. Sem login, você usa os alarmes locais separados." TextWrapping="Wrap" />
+                <Button x:Name="SyncButton" Content="Sincronizar agora" Click="Sync_Click" />
+                <Button x:Name="ImportButton" Content="Adicionar meus alarmes locais à conta" Click="Import_Click" />
+                <Button x:Name="ConflictsButton" Content="Revisar alterações simultâneas" Visibility="Collapsed" Click="Conflicts_Click" />
+                <TextBlock x:Name="SyncStatus" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
             </StackPanel>
             <ProgressBar x:Name="AccountProgress" IsIndeterminate="True" Visibility="Collapsed" />
             <TextBlock x:Name="AccountStatus" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />

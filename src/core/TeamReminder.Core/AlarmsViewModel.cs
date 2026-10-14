@@ -318,7 +318,7 @@ public sealed class AlarmsViewModel : ObservableObject
         try
         {
             if (!await ConfirmDeleteAsync(target)) return;
-            await service.DeleteAsync(target.Id);
+            await service.DeleteAsync(target);
             ReplaceRows(Alarms.Select(row => row.Alarm).Where(a => a.Id != target.Id).ToArray());
             if (editingAlarm?.Id == target.Id) ResetForm();
             Message = "Alarme excluído.";
