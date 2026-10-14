@@ -19,6 +19,31 @@ public sealed partial class AccountControl : UserControl
     private bool initialized;
     private bool busy;
     private readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromMinutes(1) };
+    public event EventHandler? SessionChanged;
+    public bool HasSession => session is not null;
+    public Guid? CurrentAccountId => session?.User.Id;
+
+    // Group operations share the authentication path with alarm sync, preventing concurrent token rotation.
+    public async Task<T> ExecuteAuthenticatedAsync<T>(Func<AuthClient, string, Task<T>> operation)
+    {
+        while (busy)
+        {
+            if (shutdown) throw new OperationCanceledException();
+            await Task.Delay(100);
+        }
+        if (session is null || api is null) throw new AccountApiException("Entre na sua conta em Configurações para usar grupos.");
+        SetBusy(true);
+        try
+        {
+            await EnsureAccessAsync();
+            try { return await operation(api, session.AccessToken); }
+            catch (AccountApiException ex) when (ex.Unauthorized)
+            { await RefreshAsync(); return await operation(api, session!.AccessToken); }
+        }
+        catch (AccountApiException ex) when (ex.Unauthorized)
+        { await HandleErrorAsync(ex); throw; }
+        finally { SetBusy(false); }
+    }
 
     public AccountControl()
     {
@@ -86,6 +111,7 @@ public sealed partial class AccountControl : UserControl
         ConflictsButton.Visibility = Visibility.Collapsed;
         SyncStatus.Text = session is null ? "" : "Usando o cache desta conta. Aguardando sincronização.";
         if (changed is not null) await changed(true);
+        SessionChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private async Task RestoreAsync()
