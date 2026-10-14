@@ -24,14 +24,15 @@ public sealed partial class AccountControl : UserControl
     public Guid? CurrentAccountId => session?.User.Id;
 
     // Group operations share the authentication path with alarm sync, preventing concurrent token rotation.
-    public async Task<T> ExecuteAuthenticatedAsync<T>(Func<AuthClient, string, Task<T>> operation)
+    public async Task<T> ExecuteAuthenticatedAsync<T>(Func<AuthClient, string, Task<T>> operation, bool deferInvalidation = false)
     {
+        var expectedAccount=CurrentAccountId;
         while (busy)
         {
             if (shutdown) throw new OperationCanceledException();
             await Task.Delay(100);
         }
-        if (session is null || api is null) throw new AccountApiException("Entre na sua conta em Configurações para usar grupos.");
+        if (session is null || api is null || session.User.Id!=expectedAccount) throw new AccountApiException("Entre na sua conta em Configurações para usar grupos.");
         SetBusy(true);
         try
         {
@@ -41,7 +42,7 @@ public sealed partial class AccountControl : UserControl
             { await RefreshAsync(); return await operation(api, session!.AccessToken); }
         }
         catch (AccountApiException ex) when (ex.Unauthorized)
-        { await HandleErrorAsync(ex); throw; }
+        { if(deferInvalidation)_=HandleErrorAsync(ex);else await HandleErrorAsync(ex); throw; }
         finally { SetBusy(false); }
     }
 
@@ -148,6 +149,11 @@ public sealed partial class AccountControl : UserControl
     {
         var cache = repository!.Current;
         await new AlarmSyncEngine(cache, new AuthenticatedAlarmApi(api!, AccessTokenAsync, RefreshAsync, WaitForEditorAsync)).SyncAsync();
+        GroupAlarmResponse[] groupAlarms;
+        try { groupAlarms=await api!.PullGroupAlarmsAsync(await AccessTokenAsync()); }
+        catch(AccountApiException ex) when(ex.Unauthorized){await RefreshAsync();groupAlarms=await api!.PullGroupAlarmsAsync(session!.AccessToken);}
+        await WaitForEditorAsync();
+        await cache.ApplyGroupAlarmsAsync(groupAlarms);
         var pending = await cache.GetPendingAsync();
         var conflicts = await cache.GetConflictsAsync();
         ConflictsButton.Visibility = conflicts.Count > 0 ? Visibility.Visible : Visibility.Collapsed;

@@ -85,6 +85,12 @@ public partial class App : Application
         await window.StartAsync();
         _ = ListenForActivationAsync("TeamReminder.Activation." + sid, activationCancellation.Token);
 #if DEBUG
+        var editorReport=Environment.GetEnvironmentVariable("TEAMREMINDER_TEST_EDITOR_REPORT");
+        if(!string.IsNullOrEmpty(editorReport)&&!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("TEAMREMINDER_TEST_DATA_FILE")))
+        {
+            await EditorSmokeProbe.RunAsync(window,viewModel,sounds,editorReport);
+            Exit();return;
+        }
         var audioReport = Environment.GetEnvironmentVariable("TEAMREMINDER_TEST_AUDIO_REPORT");
         if (!string.IsNullOrEmpty(audioReport) && !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("TEAMREMINDER_TEST_DATA_FILE")))
             await AudioSmokeProbe.RunAsync(sounds, audioReport, WinRT.Interop.WindowNative.GetWindowHandle(window), viewModel);

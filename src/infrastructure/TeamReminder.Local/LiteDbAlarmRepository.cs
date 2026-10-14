@@ -40,6 +40,7 @@ public sealed partial class LiteDbAlarmRepository(string filePath, bool synchron
 
     public Task InsertAsync(Alarm alarm) => Task.Run(() =>
     {
+        if(alarm.GroupId is not null)throw new GroupAlarmOperationException("Alarmes de grupos são publicados pelo servidor.");
         lock (gate) { InTransaction(() => { Collection().Insert(ToDocument(alarm)); QueueChange(alarm.Id, alarm, false); return true; }); }
     });
 
@@ -58,7 +59,7 @@ public sealed partial class LiteDbAlarmRepository(string filePath, bool synchron
         {
             var collection = Collection();
             var existing = collection.FindById(alarm.Id);
-            if (existing is null) return false;
+            if (existing is null || existing.GroupId is not null) return false;
             var updated = ToDocument(alarm);
             updated.CreatedAtUtc = existing.CreatedAtUtc;
             return InTransaction(() => { var success = collection.Update(updated); if (success) QueueChange(alarm.Id, ToAlarm(updated), false); return success; });
@@ -112,6 +113,7 @@ public sealed partial class LiteDbAlarmRepository(string filePath, bool synchron
         {
             return InTransaction(() =>
             {
+                if(Collection().FindById(id)?.GroupId is not null)return false;
                 var deleted = Collection().Delete(id);
                 if (deleted)
                 {
@@ -128,6 +130,7 @@ public sealed partial class LiteDbAlarmRepository(string filePath, bool synchron
 
     private static Alarm ToAlarm(AlarmDocument a) => new(a.Id, a.Title, Utc(a.ScheduledAtUtc), Utc(a.CreatedAtUtc), a.TimeZoneId)
     {
+        GroupId=a.GroupId, GroupName=a.GroupName, GroupVersion=a.GroupVersion, CanManageGroup=a.CanManageGroup,
         Link = string.IsNullOrEmpty(a.LinkUrl) ? null : new AlarmLink(a.LinkUrl, a.LinkLabel ?? "Abrir link"),
         Sound = new AlarmSound(a.SoundKind, a.SoundFileId, a.SoundFileName),
         Recurrence = a.Recurrence, Days = a.Days,
@@ -136,6 +139,7 @@ public sealed partial class LiteDbAlarmRepository(string filePath, bool synchron
 
     private static AlarmDocument ToDocument(Alarm a) => new()
     {
+        GroupId=a.GroupId, GroupName=a.GroupName, GroupVersion=a.GroupVersion, CanManageGroup=a.CanManageGroup,
         Id = a.Id, Title = a.Title, ScheduledAtUtc = a.ScheduledAtUtc, CreatedAtUtc = a.CreatedAtUtc,
         LinkUrl = a.Link?.Url, LinkLabel = a.Link?.Label,
         SoundKind = a.Sound.Kind, SoundFileId = a.Sound.FileId, SoundFileName = a.Sound.FileName,
@@ -156,6 +160,10 @@ public sealed partial class LiteDbAlarmRepository(string filePath, bool synchron
     public sealed class AlarmDocument
     {
         public Guid Id { get; set; }
+        public Guid? GroupId { get; set; }
+        public string? GroupName { get; set; }
+        public long GroupVersion { get; set; }
+        public bool CanManageGroup { get; set; }
         public string Title { get; set; } = "";
         public DateTime ScheduledAtUtc { get; set; }
         public DateTime CreatedAtUtc { get; set; }

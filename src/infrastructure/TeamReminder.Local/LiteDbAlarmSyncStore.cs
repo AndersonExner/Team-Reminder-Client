@@ -48,7 +48,7 @@ public sealed partial class LiteDbAlarmRepository : IAlarmSyncStore
         {
             var collection = Collection();
             var existing = collection.FindById(original.Id);
-            if (existing is null || AlarmSyncMapping.Definition(ToAlarm(existing)) != AlarmSyncMapping.Definition(original)) return false;
+            if (existing is null || existing.GroupId is not null || AlarmSyncMapping.Definition(ToAlarm(existing)) != AlarmSyncMapping.Definition(original)) return false;
             return InTransaction(() =>
             {
                 var document = ToDocument(updated);

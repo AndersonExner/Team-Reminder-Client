@@ -39,6 +39,7 @@ public sealed class AlarmRow(Alarm alarm, TimeProvider clock) : ObservableObject
 {
     public Alarm Alarm { get; } = alarm;
     public string Title => Alarm.Title;
+    public string Origin => Alarm.GroupId is null ? "Pessoal" : $"Grupo · {Alarm.GroupName}";
     public string Schedule => (Alarm.DueAtUtc ?? Alarm.ScheduledAtUtc).ToLocalTime().ToString("dd/MM/yyyy HH:mm");
     public bool HasLink => AlarmLink.TryGetUri(Alarm.Link?.Url, out _);
     public string ActionLabel => Alarm.Link?.Label ?? "Abrir link";
@@ -60,6 +61,28 @@ public sealed class AlarmsViewModel : ObservableObject
     private TimeSpan? selectedTime;
     private AlarmRow? selectedAlarm;
     private Alarm? editingAlarm;
+    private Guid draftId = Guid.NewGuid();
+    public ObservableCollection<AlarmDestination> Destinations { get; } = [new(null,"Só para mim")];
+    private AlarmDestination? destination;
+    public AlarmDestination? Destination
+    {
+        get => destination ?? Destinations.FirstOrDefault();
+        set { if(Set(ref destination,value)){Notify(nameof(DestinationHint));Notify(nameof(SaveLabel));} }
+    }
+    public string DestinationHint => Destination?.GroupId is null
+        ? "Um alarme pessoal. Ao entrar em uma conta, ele pode ser sincronizado entre seus computadores."
+        : $"Todos os participantes de {Destination.Label} receberão o alarme ao sincronizar. Publicar exige conexão.";
+    public string GroupSelectionMessage { get; private set; } = "";
+    public void ReportGroupSelection(string message){GroupSelectionMessage=message;Notify(nameof(GroupSelectionMessage));}
+    public bool CanChooseDestination => CanEdit && !IsEditing;
+    public void ConfigureGroupPublisher(IGroupAlarmPublisher publisher) => service.GroupPublisher = publisher;
+    public void SetDestinations(IEnumerable<GroupSummary> groups)
+    {
+        Destinations.Clear();Destinations.Add(new(null,"Só para mim"));
+        foreach(var group in groups.Where(x=>x.MyRole is GroupRole.Owner or GroupRole.Administrator))
+            Destinations.Add(new(group.Id,group.Name));
+        Destination=Destinations.First();
+    }
     private bool busy, loaded;
     private RecurrenceKind recurrence;
     private AlarmSound sound = AlarmSound.Default;
@@ -81,15 +104,15 @@ public sealed class AlarmsViewModel : ObservableObject
         this.service = service;
         this.clock = clock;
         this.zone = zone ?? (() => TimeZoneInfo.Local);
-        var localNow = Today();
+        var localNow = Today().AddMinutes(5);
         selectedDate = localNow;
         selectedTime = new TimeSpan(localNow.Hour, localNow.Minute, 0);
         DismissAlertsCommand = new AsyncCommand(() => { AlertText = ""; ReceivedAlarms.Clear(); return Task.CompletedTask; }, () => true);
         SaveCommand = new AsyncCommand(SaveAsync, () => CanEdit);
         ReloadCommand = new AsyncCommand(LoadAsync, () => !busy);
-        EditCommand = new AsyncCommand(() => { BeginEditSelected(); return Task.CompletedTask; }, () => CanEdit && SelectedAlarm is not null);
+        EditCommand = new AsyncCommand(() => { BeginEditSelected(); return Task.CompletedTask; }, () => CanEditSelected);
         CancelEditCommand = new AsyncCommand(() => { CancelEdit(); return Task.CompletedTask; }, () => CanEdit && IsEditing);
-        DeleteCommand = new AsyncCommand(DeleteSelectedAsync, () => CanEdit && SelectedAlarm is not null);
+        DeleteCommand = new AsyncCommand(DeleteSelectedAsync, () => CanEditSelected);
     }
 
     public ObservableCollection<AlarmRow> Alarms { get; } = [];
@@ -168,10 +191,10 @@ public sealed class AlarmsViewModel : ObservableObject
     public string Message { get => message; private set => Set(ref message, value); }
     public bool IsBusy => busy;
     public bool CanEdit => loaded && !busy;
-    public bool CanEditSelected => CanEdit && SelectedAlarm is not null;
+    public bool CanEditSelected => CanEdit && SelectedAlarm is not null && (SelectedAlarm.Alarm.GroupId is null || SelectedAlarm.Alarm.CanManageGroup);
     public bool IsEditing => editingAlarm is not null;
     public string FormTitle => IsEditing ? "Editar alarme" : "Novo alarme";
-    public string SaveLabel => IsEditing ? "Salvar alterações" : "Salvar alarme";
+    public string SaveLabel => IsEditing ? "Salvar alterações" : Destination?.GroupId is not null ? "Publicar no grupo" : "Salvar alarme";
     public string EmptyMessage => loaded && Alarms.Count == 0 ? "Crie seu primeiro alarme." : "";
 
     private void RefreshCommands()
@@ -184,20 +207,24 @@ public sealed class AlarmsViewModel : ObservableObject
     private void SetBusy(bool value)
     {
         busy = value;
-        Notify(nameof(IsBusy)); Notify(nameof(CanEdit)); Notify(nameof(EmptyMessage));
+        Notify(nameof(IsBusy)); Notify(nameof(CanChooseDestination)); Notify(nameof(CanEdit)); Notify(nameof(EmptyMessage));
         RefreshCommands();
     }
 
     private void NotifyMode()
     {
-        Notify(nameof(IsEditing)); Notify(nameof(FormTitle)); Notify(nameof(SaveLabel));
+        Notify(nameof(CanChooseDestination)); Notify(nameof(IsEditing)); Notify(nameof(FormTitle)); Notify(nameof(SaveLabel));
         RefreshCommands();
     }
 
     public void BeginEditSelected()
     {
         if (!CanEdit || SelectedAlarm is null) return;
+        if (!CanEditSelected) return;
         editingAlarm = SelectedAlarm.Alarm;
+        Destination=editingAlarm.GroupId is null ? Destinations.FirstOrDefault(x=>x.GroupId is null)
+            : Destinations.FirstOrDefault(x=>x.GroupId==editingAlarm.GroupId) ?? new(editingAlarm.GroupId,editingAlarm.GroupName??"Grupo");
+        if(!Destinations.Any(x=>x.GroupId==Destination?.GroupId)&&Destination is not null)Destinations.Add(Destination);
         var localZone = zone();
         var local = TimeZoneInfo.ConvertTimeFromUtc((editingAlarm.DueAtUtc ?? editingAlarm.ScheduledAtUtc), localZone);
         Title = editingAlarm.Title;
@@ -234,8 +261,8 @@ public sealed class AlarmsViewModel : ObservableObject
 
     private void ResetForm()
     {
-        editingAlarm = null;
-        var localNow = Today();
+        editingAlarm = null; draftId=Guid.NewGuid(); Destination=Destinations.FirstOrDefault();
+        var localNow = Today().AddMinutes(5);
         Title = ""; SelectedDate = localNow; SelectedTime = new TimeSpan(localNow.Hour, localNow.Minute, 0);
         ActionUrl = ActionLabel = "";
         Sound = AlarmSound.Default;
@@ -285,7 +312,7 @@ public sealed class AlarmsViewModel : ObservableObject
             var editing = editingAlarm;
             var days = DayOptions.Where(day => day.IsSelected).Aggregate(WeekDays.None, (value, day) => value | day.Day);
             var alarm = editing is null
-                ? await service.CreateAsync(Title, SelectedDate?.Date, SelectedTime, zone(), Recurrence, days, Sound, ActionUrl, ActionLabel)
+                ? await service.CreateAsync(Title, SelectedDate?.Date, SelectedTime, zone(), Recurrence, days, Sound, ActionUrl, ActionLabel, Destination?.GroupId, draftId)
                 : await service.UpdateAsync(editing, Title, SelectedDate?.Date, SelectedTime, zone(), Recurrence, days, Sound, ActionUrl, ActionLabel);
             ReplaceRows(Alarms.Select(row => row.Alarm).Where(a => a.Id != alarm.Id).Append(alarm).ToArray());
             ResetForm();
@@ -300,6 +327,7 @@ public sealed class AlarmsViewModel : ObservableObject
             else if (ex.Field == "Recurrence") RecurrenceError = ex.Message;
             else ScheduleError = ex.Message;
         }
+        catch (GroupAlarmOperationException ex) { Message = ex.Message; }
         catch (AlarmNotFoundException ex) { Message = ex.Message; }
         catch (Exception)
         {
@@ -323,6 +351,7 @@ public sealed class AlarmsViewModel : ObservableObject
             if (editingAlarm?.Id == target.Id) ResetForm();
             Message = "Alarme excluído.";
         }
+        catch (GroupAlarmOperationException ex) { Message = ex.Message; }
         catch (AlarmNotFoundException ex) { Message = ex.Message; }
         catch (Exception)
         {

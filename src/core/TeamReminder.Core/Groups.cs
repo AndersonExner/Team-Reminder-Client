@@ -30,6 +30,7 @@ public sealed record GroupAuditResponse(Guid Id, Guid ActorAccountId, string Act
 {
     public string Description => $"{CreatedAt.ToLocalTime():dd/MM/yyyy HH:mm} · {ActorName} · " + (Action switch
     {
+        "AlarmCreated" => "publicou um alarme", "AlarmUpdated" => "editou um alarme", "AlarmDeleted" => "excluiu um alarme",
         "Created" => "criou o grupo", "Updated" => "editou o grupo", "Invited" => "convidou um participante",
         "InvitationAccepted" => "aceitou um convite", "InvitationDeclined" => "recusou um convite",
         "InvitationCanceled" => "cancelou um convite", "Promoted" => "promoveu um administrador",

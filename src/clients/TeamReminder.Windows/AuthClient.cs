@@ -65,6 +65,12 @@ public sealed class AuthClient(HttpClient http)
     public Task<object> AcceptGroupInvitationAsync(Guid id, string token) => SendAsync<object>(HttpMethod.Post, $"api/invitations/{id}/accept", token: token);
     public Task<object> DeclineGroupInvitationAsync(Guid id, string token) => SendAsync<object>(HttpMethod.Post, $"api/invitations/{id}/decline", token: token);
 
+    public Task<GroupAlarmResponse[]> PullGroupAlarmsAsync(string token) => SendAsync<GroupAlarmResponse[]>(HttpMethod.Get,"api/group-alarms",token:token);
+    public Task<GroupAlarmResponse> SaveGroupAlarmAsync(Guid groupId,Guid id,AlarmWriteRequest request,string token) =>
+        SendAsync<GroupAlarmResponse>(HttpMethod.Put,$"api/groups/{groupId}/alarms/{id}",request,token);
+    public Task<object> DeleteGroupAlarmAsync(Guid groupId,Guid id,long version,Guid mutationId,string token) =>
+        SendAsync<object>(HttpMethod.Delete,$"api/groups/{groupId}/alarms/{id}?version={version}&mutationId={mutationId}",token:token);
+
     private async Task<T> SendAsync<T>(HttpMethod method, string path, object? body = null, string? token = null)
     {
         using var request = new HttpRequestMessage(method, path);
