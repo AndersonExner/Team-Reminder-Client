@@ -24,5 +24,6 @@
 
   <ItemGroup>
     <Compile Include="../../src/clients/TeamReminder.Windows/AlarmNotificationXml.cs" Link="AlarmNotificationXml.cs" />
+    <Compile Include="../../src/clients/TeamReminder.Windows/AuthClient.cs" Link="AuthClient.cs" />
   </ItemGroup>
 </Project>

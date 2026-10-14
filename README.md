@@ -31,6 +31,21 @@ Ou abra TeamReminder.Client.sln no Visual Studio com suporte a .NET 10/WinUI,
 selecione Debug/x64 e TeamReminder.Windows como projeto de inicialização.
 Encerre pelo menu Sair da bandeja antes de compilar novamente, para evitar DLLs bloqueadas.
 
+## Conta e servidor
+
+Em **Configurações > Minha conta**, entre com e-mail e senha ou ative **Criar uma nova conta** para informar nome, e-mail, senha e confirmação. O cadastro já conecta a conta. A senha deve ter de 10 a 128 caracteres. **Sair da conta** encerra a sessão atual; os alarmes locais continuam ativos.
+
+A API é desenvolvida no repositório `E:\ProjetosPessoais\Team-Reminder-Server`. Inicie o Docker Compose daquele repositório antes de testar cadastro e login. O endereço local padrão é `http://localhost:5080/`. Para outra instalação, configure `TEAMREMINDER_API_URL` antes de abrir o aplicativo:
+
+```powershell
+$env:TEAMREMINDER_API_URL = 'https://seu-servidor.example.com/'
+dotnet run --project src/clients/TeamReminder.Windows -p:Platform=x64
+```
+
+HTTP é aceito somente em loopback. A sessão é salva em `%LOCALAPPDATA%\TeamReminder\Account\session.bin`, protegida para o usuário atual pelo Windows e vinculada ao endereço da API. Nenhuma senha é armazenada. Ao abrir a área de conta, o aplicativo valida a sessão e renova os tokens quando necessário. Se o servidor estiver indisponível, é possível tentar reconectar, e o agendamento local segue funcionando. Logout sem conexão limpa a sessão local e informa que não conseguiu revogá-la no servidor.
+
+Esta etapa implementa somente autenticação e cadastro. Os alarmes ainda não são vinculados à conta nem sincronizados. Trocar de conta mantém os alarmes deste computador.
+
 ## Usar os alarmes
 
 - Novo alarme: abre o modal com data e HH:mm atuais; Salvar fecha somente após sucesso. Cancelar/Esc descarta o rascunho.
