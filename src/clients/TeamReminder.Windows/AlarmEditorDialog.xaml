@@ -9,7 +9,7 @@
     <ScrollViewer Background="{ThemeResource ContentDialogBackground}" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" MaxHeight="580" IsEnabled="{Binding CanEdit}">
         <StackPanel Spacing="16" MinWidth="360" MaxWidth="560" Margin="0,0,24,0">
             <TextBlock Text="Defina quem recebe e quando lembrar. O aviso sempre toca no computador de cada participante."
-                TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                Margin="16,0" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
             <Border Padding="16" CornerRadius="10" Background="{ThemeResource ControlFillColorSecondaryBrush}">
                 <StackPanel Spacing="8">
                     <TextBlock Text="Quem recebe" FontWeight="SemiBold" />
@@ -21,7 +21,7 @@
                     <TextBlock Text="{Binding GroupSelectionMessage}" FontSize="12" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 </StackPanel>
             </Border>
-            <StackPanel Spacing="8">
+            <StackPanel Spacing="8" Margin="16,0">
                 <TextBlock Text="O que lembrar" FontWeight="SemiBold" />
                 <TextBox x:Name="AlarmTitle" PlaceholderText="Ex.: reunião da equipe ou registrar o ponto" MaxLength="120"
                     AutomationProperties.Name="Título do alarme" Text="{Binding Title, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
@@ -36,7 +36,8 @@
                         <TimePicker Grid.Column="1" Header="Horário" MinWidth="0" HorizontalAlignment="Stretch" ClockIdentifier="24HourClock" SelectedTime="{Binding SelectedTime, Mode=TwoWay}" />
                     </Grid>
                     <TextBlock Text="{Binding ScheduleError}" Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap" />
-                    <ComboBox Header="Repetição" SelectedIndex="{Binding RecurrenceIndex, Mode=TwoWay}" HorizontalAlignment="Stretch">
+                    <TextBlock Text="Repetição" />
+                    <ComboBox SelectedIndex="{Binding RecurrenceIndex, Mode=TwoWay}" HorizontalAlignment="Stretch">
                         <ComboBoxItem Content="Uma vez" /><ComboBoxItem Content="Todos os dias" /><ComboBoxItem Content="Dias da semana" />
                     </ComboBox>
                     <ItemsControl ItemsSource="{Binding DayOptions}" Visibility="{Binding ShowWeekDays}">
@@ -57,12 +58,12 @@
             <Expander Header="Som do alarme" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                 <local:SoundPickerControl x:Name="SoundEditor" />
             </Expander>
-            <TextBlock Text="{Binding Sound.Label}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
-            <TextBlock Text="{Binding SoundError}" Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap" />
-            <TextBlock Text="{Binding ActionError}" Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap" />
-            <TextBlock Text="Para um aviso único, escolha uma data e horário futuros. Alarmes de grupo seguem o mesmo instante em todos os computadores."
+            <TextBlock Margin="16,0" Text="{Binding Sound.Label}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+            <TextBlock Margin="16,0" Text="{Binding SoundError}" Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap" />
+            <TextBlock Margin="16,0" Text="{Binding ActionError}" Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap" />
+            <TextBlock Margin="16,0" Text="Para um aviso único, escolha uma data e horário futuros. Alarmes de grupo seguem o mesmo instante em todos os computadores."
                 FontSize="12" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-            <TextBlock Text="{Binding Message}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+            <TextBlock Margin="16,0" Text="{Binding Message}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
         </StackPanel>
     </ScrollViewer>
 </ContentDialog>
