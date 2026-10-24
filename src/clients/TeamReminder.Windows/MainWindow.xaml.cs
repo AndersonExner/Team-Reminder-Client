@@ -19,7 +19,17 @@ public sealed partial class MainWindow : Window
     private bool dialogOpen;
     private bool editorPreparing;
     private bool advanceReady;
+    private bool updatesReady;
     private int ticks;
+    private readonly AppUpdater updater = new();
+    private bool autoUpdate = true;
+    private bool updateReady;
+    private bool maintainingUpdates;
+    private readonly DateTime startedUtc = DateTime.UtcNow;
+    private static readonly TimeSpan UpdateInterval = TimeSpan.FromHours(6);
+    private static readonly string AutoUpdatePath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "TeamReminder", "Settings", "auto-update.txt");
     private int? advanceMinutes;
     private static readonly int?[] AdvanceOptions = [null, 5, 10, 15, 30, 60];
     private static readonly string AdvancePath = Path.Combine(
@@ -79,6 +89,18 @@ public sealed partial class MainWindow : Window
         catch (Exception ex) when (ex is System.Security.SecurityException or UnauthorizedAccessException or IOException)
         { StartupStatus.Text = "Não foi possível consultar a inicialização com Windows."; }
         startupReady = true;
+        try
+        {
+            if (File.Exists(AutoUpdatePath) && bool.TryParse(File.ReadAllText(AutoUpdatePath), out var savedAutoUpdate))
+                autoUpdate = savedAutoUpdate;
+        }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+        AutoUpdateToggle.IsOn = autoUpdate;
+        AutoUpdateToggle.IsEnabled = CheckUpdateButton.IsEnabled = AppUpdater.IsInstalled;
+        UpdateVersion.Text = $"Versão instalada: {AppUpdater.CurrentVersion}";
+        if (!AppUpdater.IsInstalled) UpdateStatus.Text = "Atualização automática disponível apenas na versão instalada.";
+        updatesReady = true;
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "app.ico"));
         AppWindow.Closing += (_, e) =>
         {
@@ -91,7 +113,7 @@ public sealed partial class MainWindow : Window
         timer.Tick += async (_, _) =>
         {
             // Windows time zone changes are not observed by TimeZoneInfo.Local until its cache is cleared.
-            if (++ticks % 60 == 0) TimeZoneInfo.ClearCachedData();
+            if (++ticks % 60 == 0) { TimeZoneInfo.ClearCachedData(); await MaintainUpdatesAsync(); }
             viewModel.RefreshTime();
             await viewModel.ProcessDueAsync();
             await viewModel.ProcessEarlyAsync();
@@ -271,6 +293,86 @@ public sealed partial class MainWindow : Window
             await CleanSoundsAsync(importedIds);
         }
     }
+    // Checks a few minutes after start and every six hours; installs on its own only while the app sits
+    // in the tray with nothing being edited and no alarm due soon. Otherwise the user chooses when.
+    private async Task MaintainUpdatesAsync()
+    {
+        if (maintainingUpdates || exiting || !AppUpdater.IsInstalled || !autoUpdate) return;
+        maintainingUpdates = true;
+        try
+        {
+            var now = DateTime.UtcNow;
+            if (!updateReady && now - startedUtc >= TimeSpan.FromMinutes(2)
+                && (updater.LastCheckUtc is not { } last || now - last >= UpdateInterval))
+                ShowUpdateStatus(await updater.CheckAsync());
+            if (updateReady && !AppWindow.IsVisible && !dialogOpen && !editorPreparing && !viewModel.IsBusy
+                && UpdatePolicy.IsQuietPeriod(await repository.ListAsync(), DateTime.UtcNow, TimeSpan.FromMinutes(10)))
+                ApplyUpdate(showWindow: false);
+        }
+        catch (Exception ex) { ErrorLog.Write(ex); }
+        finally { maintainingUpdates = false; }
+    }
+
+    private void ShowUpdateStatus(string text)
+    {
+        updateReady = updater.Ready is not null;
+        UpdateStatus.Text = text;
+        InstallUpdateButton.Visibility = updateReady ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void ApplyUpdate(bool showWindow)
+    {
+        if (!updater.Launch(showWindow))
+        {
+            UpdateStatus.Text = "Não foi possível iniciar o instalador. Tente novamente mais tarde.";
+            return;
+        }
+        exiting = true;
+        Close();
+    }
+
+    private void AutoUpdateToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (!updatesReady) return;
+        autoUpdate = AutoUpdateToggle.IsOn;
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(AutoUpdatePath)!);
+            File.WriteAllText(AutoUpdatePath, autoUpdate.ToString());
+            UpdateStatus.Text = autoUpdate ? "Novas versões serão baixadas e instaladas quando o app estiver na bandeja."
+                : "Atualização automática desativada. Use Verificar agora.";
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        { UpdateStatus.Text = "Preferência aplicada nesta sessão, mas não foi possível salvá-la."; }
+    }
+
+    private async void CheckUpdate_Click(object sender, RoutedEventArgs e)
+    {
+        CheckUpdateButton.IsEnabled = false;
+        UpdateStatus.Text = "Verificando atualizações...";
+        try { ShowUpdateStatus(await updater.CheckAsync()); }
+        finally { CheckUpdateButton.IsEnabled = true; }
+    }
+
+    private async void InstallUpdate_Click(object sender, RoutedEventArgs e)
+    {
+        if (!UpdatePolicy.IsQuietPeriod(await repository.ListAsync(), DateTime.UtcNow, TimeSpan.FromMinutes(10)))
+        {
+            var dialog = new ContentDialog
+            {
+                XamlRoot = Root.XamlRoot, RequestedTheme = Root.RequestedTheme,
+                Title = "Atualizar agora?",
+                Content = "Há um alarme nos próximos 10 minutos. O app fecha por alguns segundos durante a instalação; alarmes nesse intervalo são avisados assim que ele reabrir.",
+                PrimaryButtonText = "Atualizar", CloseButtonText = "Depois", DefaultButton = ContentDialogButton.Close
+            };
+            if (dialogOpen) return;
+            dialogOpen = true;
+            try { if (await dialog.ShowAsync() != ContentDialogResult.Primary) return; }
+            finally { dialogOpen = false; }
+        }
+        ApplyUpdate(showWindow: true);
+    }
+
     private void StartupToggle_Toggled(object sender, RoutedEventArgs e)
     {
         if (!startupReady) return;

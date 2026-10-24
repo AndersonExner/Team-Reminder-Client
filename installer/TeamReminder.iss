@@ -43,3 +43,5 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 
 [Run]
 Filename: "{app}\TeamReminder.Windows.exe"; Description: "Abrir Team Reminder"; Flags: nowait postinstall skipifsilent
+; Automatic updates run silently and pass /relaunch=--tray (or --updated when the user asked to update now).
+Filename: "{app}\TeamReminder.Windows.exe"; Parameters: "{param:relaunch|--tray}"; Flags: nowait; Check: WizardSilent
