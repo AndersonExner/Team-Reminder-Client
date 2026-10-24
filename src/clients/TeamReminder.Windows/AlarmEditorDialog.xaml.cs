@@ -36,6 +36,13 @@ public sealed partial class AlarmEditorDialog : ContentDialog
     public void StopPreview() => SoundEditor.StopPreview();
     public void DisposeSoundEditor() => SoundEditor.Dispose();
 
+    private void Quick_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as Button)?.Tag is not string tag) return;
+        if (tag == "tomorrow") viewModel.ApplyTomorrowAt(9);
+        else if (int.TryParse(tag, out var minutes)) viewModel.ApplyQuickSchedule(TimeSpan.FromMinutes(minutes));
+    }
+
     private void Dialog_Opened(ContentDialog sender, ContentDialogOpenedEventArgs args) =>
         AlarmTitle.Focus(FocusState.Programmatic);
 }

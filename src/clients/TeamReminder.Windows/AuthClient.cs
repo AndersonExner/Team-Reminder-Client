@@ -18,11 +18,8 @@ public sealed class AccountApiException(string message, bool unauthorized = fals
 
 public sealed class AuthClient(HttpClient http)
 {
-    #if DEBUG
-    private const string DefaultServer = "http://localhost:5080/";
-#else
+    // Debug and Release use the hosted API; set TEAMREMINDER_API_URL to http://localhost:5080/ for a local server.
     private const string DefaultServer = "https://team-reminder-api.onrender.com/";
-#endif
     public static Uri ServerAddress(string? configured)
     {
         var uri = new Uri(string.IsNullOrWhiteSpace(configured) ? DefaultServer : configured.Trim().TrimEnd('/') + "/");

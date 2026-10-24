@@ -3,150 +3,356 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:TeamReminder.Windows"
     Title="Team Reminder">
-    <Grid x:Name="Root" Padding="24" RowSpacing="12" Loaded="Root_Loaded"
-        Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+    <Window.SystemBackdrop><MicaBackdrop /></Window.SystemBackdrop>
+    <Grid x:Name="Root" Loaded="Root_Loaded">
+        <Grid.Resources>
+            <!-- One alarm, as a card: time on the left, details in the middle, actions on the right. -->
+            <DataTemplate x:Key="AlarmCardTemplate">
+                <Grid Padding="16,12" Margin="0,0,0,6" ColumnSpacing="16" CornerRadius="8" BorderThickness="1"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    Opacity="{Binding RowOpacity}" Tag="{Binding}" DoubleTapped="AlarmCard_DoubleTapped">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="76" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="{Binding TimeText}" FontSize="24" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding DayText}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Title}" Style="{StaticResource BodyStrongTextBlockStyle}" TextTrimming="CharacterEllipsis" MaxLines="2" TextWrapping="Wrap" />
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Border Style="{StaticResource ChipStyle}">
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <FontIcon Glyph="&#xE8EE;" FontSize="11" Visibility="{Binding IsRecurring, Converter={StaticResource Visible}}" />
+                                    <TextBlock Text="{Binding RecurrenceText}" Style="{StaticResource ChipTextStyle}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource ChipStyle}">
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <FontIcon Glyph="&#xE716;" FontSize="11" Visibility="{Binding IsGroup, Converter={StaticResource Visible}}" />
+                                    <FontIcon Glyph="&#xE77B;" FontSize="11" Visibility="{Binding IsGroup, Converter={StaticResource Hidden}}" />
+                                    <TextBlock Text="{Binding OriginShort}" Style="{StaticResource ChipTextStyle}" />
+                                </StackPanel>
+                            </Border>
+                            <FontIcon Glyph="&#xE74F;" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Visibility="{Binding IsSilent, Converter={StaticResource Visible}}" ToolTipService.ToolTip="Sem som" />
+                            <TextBlock Text="{Binding Countdown}" Style="{StaticResource CaptionTextBlockStyle}" VerticalAlignment="Center"
+                                Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                        </StackPanel>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                        <Button Tag="{Binding}" Click="OpenLink_Click" Visibility="{Binding HasLink, Converter={StaticResource Visible}}"
+                            ToolTipService.ToolTip="{Binding ActionUrl}" AutomationProperties.Name="{Binding ActionLabel}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE71B;" FontSize="14" />
+                                <TextBlock Text="{Binding ActionLabel}" MaxWidth="140" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                        </Button>
+                        <Button Tag="{Binding}" Click="AlarmMore_Click" Background="Transparent" BorderThickness="0"
+                            ToolTipService.ToolTip="Mais opções" AutomationProperties.Name="Mais opções">
+                            <FontIcon Glyph="&#xE712;" FontSize="16" />
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </DataTemplate>
+        </Grid.Resources>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
+            <RowDefinition Height="48" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
-        <Grid>
-            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-            <StackPanel Spacing="4">
-                <TextBlock Text="Team Reminder" Style="{StaticResource TitleTextBlockStyle}" />
-                <TextBlock Text="Seus compromissos, no momento certo." Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+
+        <!-- Custom title bar: drag region with app identity and the account state. -->
+        <Grid x:Name="AppTitleBar" Padding="16,0,0,0" ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" /><ColumnDefinition x:Name="CaptionColumn" Width="140" />
+            </Grid.ColumnDefinitions>
+            <Image x:Name="TitleBarIcon" Width="16" Height="16" VerticalAlignment="Center" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <TextBlock Text="Team Reminder" Style="{StaticResource CaptionTextBlockStyle}" VerticalAlignment="Center" />
+                <TextBlock x:Name="TitleBarVersion" Style="{StaticResource CaptionTextBlockStyle}" VerticalAlignment="Center"
+                    Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
             </StackPanel>
-            <Border Grid.Column="1" VerticalAlignment="Center" Padding="12,6" CornerRadius="16"
-                Background="{ThemeResource ControlFillColorSecondaryBrush}">
-                <TextBlock x:Name="AccountBadge" Text="Local" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <Border Grid.Column="3" VerticalAlignment="Center" Padding="10,3" CornerRadius="10" Background="{ThemeResource SubtleFillColorSecondaryBrush}">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <FontIcon Glyph="&#xE77B;" FontSize="12" />
+                    <TextBlock x:Name="AccountBadge" Text="Local" Style="{StaticResource CaptionTextBlockStyle}" />
+                </StackPanel>
             </Border>
         </Grid>
-        <StackPanel Grid.Row="1" Spacing="6">
-            <ProgressBar IsIndeterminate="True" Visibility="{Binding IsBusy}" />
-            <InfoBar Title="Alarmes recebidos" Message="{Binding AlertText}" IsOpen="{Binding HasAlerts}" IsClosable="False" Severity="Informational">
-                <ScrollViewer MaxHeight="180" VerticalScrollBarVisibility="Auto">
-                <ItemsControl ItemsSource="{Binding ReceivedAlarms}">
-                    <ItemsControl.ItemTemplate><DataTemplate>
-                        <StackPanel Spacing="4" Margin="0,8,0,0" Visibility="{Binding HasLink}">
-                            <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" />
-                            <Button Content="{Binding ActionLabel}" Tag="{Binding}" Click="OpenLink_Click"
-                                Visibility="{Binding HasLink}" ToolTipService.ToolTip="{Binding ActionUrl}" />
+
+        <NavigationView x:Name="Nav" Grid.Row="1" PaneDisplayMode="Left" IsBackButtonVisible="Collapsed" IsSettingsVisible="True"
+            OpenPaneLength="232" CompactModeThresholdWidth="720" ExpandedModeThresholdWidth="1000" SelectionChanged="Nav_SelectionChanged">
+            <NavigationView.MenuItems>
+                <NavigationViewItem x:Name="HomeItem" Content="Início" Tag="home" IsSelected="True"><NavigationViewItem.Icon><FontIcon Glyph="&#xE80F;" /></NavigationViewItem.Icon></NavigationViewItem>
+                <NavigationViewItem x:Name="AlarmsItem" Content="Alarmes" Tag="alarms"><NavigationViewItem.Icon><FontIcon Glyph="&#xEA8F;" /></NavigationViewItem.Icon></NavigationViewItem>
+                <NavigationViewItem x:Name="GroupsItem" Content="Grupos" Tag="groups"><NavigationViewItem.Icon><FontIcon Glyph="&#xE902;" /></NavigationViewItem.Icon></NavigationViewItem>
+            </NavigationView.MenuItems>
+            <Grid>
+                <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                <!-- Feedback shared by every page: busy state, notification health and the last action. -->
+                <StackPanel Margin="32,16,32,0" Spacing="6" MaxWidth="1000" HorizontalAlignment="Stretch">
+                    <ProgressBar IsIndeterminate="True" Visibility="{Binding IsBusy, Converter={StaticResource Visible}}" />
+                    <InfoBar IsOpen="True" Severity="Warning" IsClosable="False" Message="{Binding NotificationStatus}"
+                        Visibility="{Binding HasNotificationStatus, Converter={StaticResource Visible}}" />
+                    <TextBlock Text="{Binding Message}" Visibility="{Binding Message, Converter={StaticResource HasText}}" Style="{StaticResource SecondaryTextStyle}" AutomationProperties.LiveSetting="Polite" />
+                </StackPanel>
+
+                <!-- Início -->
+                <ScrollViewer x:Name="HomePage" Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="32,8,32,32" Spacing="16" MaxWidth="1000" HorizontalAlignment="Stretch">
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="{Binding Greeting}" Style="{StaticResource PageTitleStyle}" />
+                            <TextBlock Text="{Binding TodayText}" Style="{StaticResource SecondaryTextStyle}" />
                         </StackPanel>
-                    </DataTemplate></ItemsControl.ItemTemplate>
-                </ItemsControl>
-                </ScrollViewer>
-                <InfoBar.ActionButton><Button Content="Dispensar" Command="{Binding DismissAlertsCommand}" /></InfoBar.ActionButton>
-            </InfoBar>
-            <TextBlock Text="{Binding NotificationStatus}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-            <TextBlock x:Name="TrayStatus" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
-            <TextBlock Text="{Binding Message}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
-        </StackPanel>
-        <TabView x:Name="MainTabs" Grid.Row="2" IsAddTabButtonVisible="False" CanDragTabs="False" CanReorderTabs="False" TabWidthMode="SizeToContent" SelectionChanged="MainTabs_SelectionChanged">
-            <TabViewItem Header="Alarmes" IsClosable="False">
-                <TabViewItem.IconSource><SymbolIconSource Symbol="Clock" /></TabViewItem.IconSource>
-                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                    <Grid Margin="0,16,0,0" ColumnSpacing="20" RowSpacing="20">
-                        <Border x:Name="ListPanel" Padding="20" CornerRadius="12" VerticalAlignment="Top"
-                            Background="{ThemeResource ControlFillColorDefaultBrush}" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1">
-                            <StackPanel Spacing="16">
-                                <StackPanel Spacing="4">
-                                    <TextBlock Text="Meus alarmes" Style="{StaticResource SubtitleTextBlockStyle}" />
-                                    <TextBlock Text="Selecione um alarme para editar ou excluir." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+
+                        <InfoBar Title="{Binding ReceivedCount}" IsOpen="{Binding HasAlerts}" IsClosable="False" Severity="Informational">
+                            <InfoBar.ActionButton><Button Content="Dispensar todos" Command="{Binding DismissAlertsCommand}" /></InfoBar.ActionButton>
+                            <ItemsControl ItemsSource="{Binding ReceivedAlarms}" Margin="0,0,0,12">
+                                <ItemsControl.ItemTemplate><DataTemplate>
+                                    <Grid ColumnSpacing="12" Margin="0,6,0,0">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Title}" Style="{StaticResource BodyStrongTextBlockStyle}" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding Schedule}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                            <Button Content="{Binding ActionLabel}" Tag="{Binding}" Click="OpenLink_Click" Visibility="{Binding HasLink, Converter={StaticResource Visible}}" />
+                                            <Button Tag="{Binding}" Click="SnoozeReceived_Click">
+                                                <StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xE916;" FontSize="12" /><TextBlock Text="Adiar" /></StackPanel>
+                                            </Button>
+                                            <Button Tag="{Binding}" Click="DismissReceived_Click" ToolTipService.ToolTip="Dispensar" AutomationProperties.Name="Dispensar">
+                                                <FontIcon Glyph="&#xE711;" FontSize="12" />
+                                            </Button>
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate></ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </InfoBar>
+
+                        <!-- Next alarm, on the accent colour. -->
+                        <Grid CornerRadius="12" Padding="28,24" Background="{ThemeResource AccentFillColorDefaultBrush}">
+                            <Grid.Resources>
+                                <Style TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
+                                    <Setter Property="Background" Value="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
+                                    <Setter Property="Foreground" Value="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                                    <Setter Property="BorderThickness" Value="0" />
+                                </Style>
+                            </Grid.Resources>
+                            <FontIcon Glyph="&#xEA8F;" FontSize="140" Opacity="0.12" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,-24,-8,-24"
+                                Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
+                            <StackPanel Spacing="4" Visibility="{Binding HasNextAlarm, Converter={StaticResource Visible}}">
+                                <TextBlock Text="PRÓXIMO ALARME" Style="{StaticResource CaptionTextBlockStyle}" FontWeight="SemiBold" CharacterSpacing="80"
+                                    Foreground="{ThemeResource TextOnAccentFillColorSecondaryBrush}" />
+                                <StackPanel Orientation="Horizontal" Spacing="14">
+                                    <TextBlock Text="{Binding NextAlarm.TimeText}" FontSize="56" FontWeight="SemiBold" Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
+                                    <StackPanel VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding NextAlarm.DayText}" Style="{StaticResource BodyStrongTextBlockStyle}" Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
+                                        <TextBlock Text="{Binding NextAlarm.Countdown}" Foreground="{ThemeResource TextOnAccentFillColorSecondaryBrush}" />
+                                    </StackPanel>
                                 </StackPanel>
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <Button Content="Novo alarme" Click="NewAlarm_Click" IsEnabled="{Binding CanEdit}" Style="{StaticResource AccentButtonStyle}" />
-                                    <Button Content="Editar" Click="EditAlarm_Click" IsEnabled="{Binding CanEditSelected}" />
-                                    <Button Content="Excluir" Click="DeleteAlarm_Click" IsEnabled="{Binding CanEditSelected}" />
-                                    <Button Command="{Binding ReloadCommand}" ToolTipService.ToolTip="Atualizar / tentar novamente" AutomationProperties.Name="Atualizar alarmes"><SymbolIcon Symbol="Refresh" /></Button>
+                                <TextBlock Text="{Binding NextAlarm.Title}" Style="{StaticResource SubtitleTextBlockStyle}" TextWrapping="Wrap" MaxLines="2"
+                                    Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
+                                <TextBlock Foreground="{ThemeResource TextOnAccentFillColorSecondaryBrush}">
+                                    <Run Text="{Binding NextAlarm.OriginShort}" /><Run Text=" · " /><Run Text="{Binding NextAlarm.RecurrenceText}" />
+                                </TextBlock>
+                                <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,10,0,0">
+                                    <Button Tag="{Binding NextAlarm}" Click="OpenLink_Click" Visibility="{Binding NextAlarm.HasLink, Converter={StaticResource Visible}, FallbackValue=Collapsed}">
+                                        <StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xE71B;" FontSize="14" /><TextBlock Text="{Binding NextAlarm.ActionLabel}" /></StackPanel>
+                                    </Button>
+                                    <Button Content="Editar" Tag="{Binding NextAlarm}" Click="EditRow_Click" Visibility="{Binding NextAlarm.CanManage, Converter={StaticResource Visible}, FallbackValue=Collapsed}" />
                                 </StackPanel>
-                                <TextBlock Text="{Binding EmptyMessage}" TextWrapping="Wrap" />
-                                <ListView ItemsSource="{Binding Alarms}" SelectionMode="Single" MaxHeight="600"
-                                    SelectedItem="{Binding SelectedAlarm, Mode=TwoWay}" IsEnabled="{Binding CanEdit}">
-                                    <ListView.ItemTemplate>
-                                        <DataTemplate>
-                                            <Grid Padding="4,12" ColumnSpacing="12">
-                                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                                                <SymbolIcon Symbol="Clock" VerticalAlignment="Top" Margin="0,4,0,0" Foreground="{ThemeResource SystemControlHighlightAccentBrush}" />
-                                                <StackPanel Grid.Column="1" Spacing="5">
-                                                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                                    <TextBlock Text="{Binding Origin}" FontSize="12" Foreground="{ThemeResource SystemControlHighlightAccentBrush}" TextWrapping="Wrap" />
-                                                    <TextBlock Text="{Binding Schedule}" />
-                                                    <TextBlock Text="{Binding RecurrenceText}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                                    <TextBlock Text="{Binding SoundText}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                                    <Button Content="{Binding ActionLabel}" Tag="{Binding}" Click="OpenLink_Click"
-                                                        Visibility="{Binding HasLink}" ToolTipService.ToolTip="{Binding ActionUrl}" />
-                                                    <TextBlock Text="{Binding Status}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                                </StackPanel>
-                                            </Grid>
-                                        </DataTemplate>
-                                    </ListView.ItemTemplate>
-                                </ListView>
                             </StackPanel>
-                        </Border>
+                            <StackPanel Spacing="8" Visibility="{Binding NoNextAlarm, Converter={StaticResource Visible}}">
+                                <TextBlock Text="Nenhum alarme agendado" Style="{StaticResource SubtitleTextBlockStyle}" Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
+                                <TextBlock Text="Crie um alarme para lembrar de reuniões, pausas ou qualquer compromisso." TextWrapping="Wrap"
+                                    Foreground="{ThemeResource TextOnAccentFillColorSecondaryBrush}" />
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Quick numbers and actions. -->
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                            <Border Style="{StaticResource CardStyle}">
+                                <StackPanel><TextBlock Text="{Binding TodayCount}" FontSize="28" FontWeight="SemiBold" /><TextBlock Text="Hoje" Style="{StaticResource SecondaryTextStyle}" /></StackPanel>
+                            </Border>
+                            <Border Grid.Column="1" Style="{StaticResource CardStyle}">
+                                <StackPanel><TextBlock Text="{Binding ActiveCount}" FontSize="28" FontWeight="SemiBold" /><TextBlock Text="Agendados" Style="{StaticResource SecondaryTextStyle}" /></StackPanel>
+                            </Border>
+                            <Border Grid.Column="2" Style="{StaticResource CardStyle}">
+                                <StackPanel><TextBlock Text="{Binding GroupCount}" FontSize="28" FontWeight="SemiBold" /><TextBlock Text="De grupos" Style="{StaticResource SecondaryTextStyle}" /></StackPanel>
+                            </Border>
+                            <StackPanel Grid.Column="3" Spacing="8" VerticalAlignment="Center" MinWidth="180">
+                                <Button Click="NewAlarm_Click" IsEnabled="{Binding CanEdit}" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Stretch">
+                                    <StackPanel Orientation="Horizontal" Spacing="8"><FontIcon Glyph="&#xE710;" FontSize="14" /><TextBlock Text="Novo alarme" /></StackPanel>
+                                </Button>
+                                <Button Content="Ver todos os alarmes" Click="ShowAlarms_Click" HorizontalAlignment="Stretch" />
+                            </StackPanel>
+                        </Grid>
+
+                        <TextBlock Text="Hoje" Style="{StaticResource SectionHeaderStyle}" />
+                        <ItemsControl ItemsSource="{Binding TodayRows}" ItemTemplate="{StaticResource AlarmCardTemplate}" />
+                        <TextBlock Text="Nada mais para hoje." Style="{StaticResource SecondaryTextStyle}"
+                            Visibility="{Binding HasTodayRows, Converter={StaticResource Hidden}}" />
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- Alarmes -->
+                <ScrollViewer x:Name="AlarmsPage" Grid.Row="1" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="32,8,32,32" MaxWidth="1000" HorizontalAlignment="Stretch">
+                    <Grid Margin="0,0,0,8" ColumnSpacing="12">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="Alarmes" Style="{StaticResource PageTitleStyle}" />
+                            <TextBlock Text="{Binding SummaryText}" Style="{StaticResource SecondaryTextStyle}" />
+                        </StackPanel>
+                        <AutoSuggestBox Grid.Column="1" Width="240" VerticalAlignment="Center" PlaceholderText="Buscar alarmes" QueryIcon="Find"
+                            Text="{Binding FilterText, Mode=TwoWay}" AutomationProperties.Name="Buscar alarmes" />
+                        <Button Grid.Column="2" Command="{Binding ReloadCommand}" VerticalAlignment="Center" ToolTipService.ToolTip="Atualizar" AutomationProperties.Name="Atualizar alarmes">
+                            <FontIcon Glyph="&#xE72C;" FontSize="14" />
+                        </Button>
+                        <Button Grid.Column="3" Click="NewAlarm_Click" IsEnabled="{Binding CanEdit}" Style="{StaticResource AccentButtonStyle}" VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Spacing="8"><FontIcon Glyph="&#xE710;" FontSize="14" /><TextBlock Text="Novo alarme" /></StackPanel>
+                        </Button>
                     </Grid>
+                        <StackPanel>
+                            <StackPanel Spacing="12" Margin="0,48,0,0" HorizontalAlignment="Center" Visibility="{Binding IsEmpty, Converter={StaticResource Visible}}">
+                                <FontIcon Glyph="&#xEA8F;" FontSize="48" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                                <TextBlock Text="Nenhum alarme ainda" Style="{StaticResource SubtitleTextBlockStyle}" HorizontalAlignment="Center" />
+                                <TextBlock Text="{Binding EmptyMessage}" Style="{StaticResource SecondaryTextStyle}" HorizontalAlignment="Center" />
+                                <Button Content="Criar alarme" Click="NewAlarm_Click" IsEnabled="{Binding CanEdit}" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Center" />
+                            </StackPanel>
+                            <TextBlock Text="Nenhum alarme corresponde à busca." Style="{StaticResource SecondaryTextStyle}" Margin="0,24,0,0"
+                                Visibility="{Binding NoMatches, Converter={StaticResource Visible}}" />
+                            <ItemsControl ItemsSource="{Binding Sections}" IsEnabled="{Binding CanEdit}">
+                                <ItemsControl.ItemTemplate><DataTemplate>
+                                    <StackPanel>
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <TextBlock Text="{Binding Title}" Style="{StaticResource SectionHeaderStyle}" />
+                                            <TextBlock Text="{Binding CountText}" Style="{StaticResource CaptionTextBlockStyle}" Margin="0,12,0,4" VerticalAlignment="Bottom"
+                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        </StackPanel>
+                                        <ItemsControl ItemsSource="{Binding Rows}" ItemTemplate="{StaticResource AlarmCardTemplate}" />
+                                    </StackPanel>
+                                </DataTemplate></ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </StackPanel>
                 </ScrollViewer>
-            </TabViewItem>
-            <TabViewItem Header="Configurações" IsClosable="False">
-                <TabViewItem.IconSource><SymbolIconSource Symbol="Setting" /></TabViewItem.IconSource>
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Margin="0,16,0,0" Spacing="20" MaxWidth="680" HorizontalAlignment="Left">
+
+                <!-- Grupos -->
+                <Grid x:Name="GroupsPage" Grid.Row="1" Visibility="Collapsed">
+                    <local:GroupsControl x:Name="GroupsPanel" />
+                </Grid>
+
+                <!-- Configurações -->
+                <ScrollViewer x:Name="SettingsPage" Grid.Row="1" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+                    <StackPanel Margin="32,8,32,32" Spacing="4" MaxWidth="1000" HorizontalAlignment="Stretch">
+                        <TextBlock Text="Configurações" Style="{StaticResource PageTitleStyle}" />
+
+                        <TextBlock Text="Conta" Style="{StaticResource SectionHeaderStyle}" />
                         <local:AccountControl x:Name="AccountPanel" />
-                        <Border Padding="24" CornerRadius="12" Background="{ThemeResource ControlFillColorDefaultBrush}" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1">
-                            <StackPanel Spacing="12">
-                                <TextBlock Text="Aparência" Style="{StaticResource SubtitleTextBlockStyle}" />
-                                <TextBlock Text="Escolha como o Team Reminder aparece neste computador." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                <ComboBox x:Name="ThemePicker" Header="Tema" MinWidth="240" SelectionChanged="ThemePicker_SelectionChanged">
-                                    <ComboBoxItem Content="Padrão do Windows" /><ComboBoxItem Content="Claro" /><ComboBoxItem Content="Escuro" />
-                                </ComboBox>
-                                <TextBlock x:Name="ThemeStatus" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
-                            </StackPanel>
-                        </Border>
-                        <Border Padding="24" CornerRadius="12" Background="{ThemeResource ControlFillColorDefaultBrush}" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1">
-                            <StackPanel Spacing="12">
-                                <TextBlock Text="Som padrão dos alarmes" Style="{StaticResource SubtitleTextBlockStyle}" />
-                                <TextBlock Text="Usado pelos alarmes que seguem o padrão do aplicativo." TextWrapping="Wrap" />
-                                <local:SoundPickerControl x:Name="DefaultSoundEditor" />
-                                <TextBlock x:Name="DefaultSoundStatus" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
-                            </StackPanel>
-                        </Border>
-                        <Border Padding="24" CornerRadius="12" Background="{ThemeResource ControlFillColorDefaultBrush}" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1">
-                            <StackPanel Spacing="12">
-                                <TextBlock Text="Lembrete antecipado" Style="{StaticResource SubtitleTextBlockStyle}" />
-                                <TextBlock Text="Receba um aviso na bandeja antes do horário de cada alarme." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                <ComboBox x:Name="AdvancePicker" Header="Notificar antes" MinWidth="240" SelectionChanged="AdvancePicker_SelectionChanged">
+
+                        <TextBlock Text="Notificações" Style="{StaticResource SectionHeaderStyle}" />
+                        <Border Style="{StaticResource SettingsCardStyle}">
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                <FontIcon Glyph="&#xE916;" Style="{StaticResource SettingsIconStyle}" />
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Text="Lembrete antecipado" />
+                                    <TextBlock x:Name="AdvanceStatus" Text="Um aviso do Windows antes do horário de cada alarme." Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                                </StackPanel>
+                                <ComboBox x:Name="AdvancePicker" Grid.Column="2" MinWidth="200" VerticalAlignment="Center" SelectionChanged="AdvancePicker_SelectionChanged" AutomationProperties.Name="Lembrete antecipado">
                                     <ComboBoxItem Content="Desativado" /><ComboBoxItem Content="5 minutos antes" />
                                     <ComboBoxItem Content="10 minutos antes" /><ComboBoxItem Content="15 minutos antes" />
                                     <ComboBoxItem Content="30 minutos antes" /><ComboBoxItem Content="1 hora antes" />
                                 </ComboBox>
-                                <TextBlock x:Name="AdvanceStatus" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
-                            </StackPanel>
+                            </Grid>
                         </Border>
-                        <Border Padding="24" CornerRadius="12" Background="{ThemeResource ControlFillColorDefaultBrush}" BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1">
-                            <StackPanel Spacing="8">
-                                <TextBlock Text="Inicialização" Style="{StaticResource SubtitleTextBlockStyle}" />
-                                <ToggleSwitch x:Name="StartupToggle" Header="Iniciar com o Windows" OnContent="Ativado" OffContent="Desativado" Toggled="StartupToggle_Toggled" />
-                                <TextBlock Text="Ao entrar no Windows, o aplicativo fica na bandeja sem abrir a janela." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                <TextBlock x:Name="StartupStatus" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
-                                <TextBlock Text="Atualizações" Style="{StaticResource SubtitleTextBlockStyle}" />
-                                <ToggleSwitch x:Name="AutoUpdateToggle" Header="Atualizar automaticamente" OnContent="Ativado" OffContent="Desativado" Toggled="AutoUpdateToggle_Toggled" />
-                                <TextBlock Text="Novas versões são baixadas, conferidas pelo SHA-256 publicado e instaladas quando o app está na bandeja e nenhum alarme está próximo." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                <TextBlock x:Name="UpdateVersion" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="56,16,16,16">
+                            <Expander.Header>
+                                <Grid MinHeight="52">
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                    <FontIcon Glyph="&#xE767;" Style="{StaticResource SettingsIconStyle}" Margin="0,0,16,0" />
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock Text="Som padrão dos alarmes" />
+                                        <TextBlock x:Name="DefaultSoundStatus" Text="Usado pelos alarmes que seguem o padrão do aplicativo." Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Grid>
+                            </Expander.Header>
+                            <local:SoundPickerControl x:Name="DefaultSoundEditor" />
+                        </Expander>
+                        <Border Style="{StaticResource SettingsCardStyle}">
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                <FontIcon Glyph="&#xEA8F;" Style="{StaticResource SettingsIconStyle}" />
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Text="Testar notificação" />
+                                    <TextBlock x:Name="TestStatus" Text="Envia um alarme de exemplo com som, botões de adiar e dispensar." Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                                </StackPanel>
+                                <Button Grid.Column="2" Content="Enviar teste" Click="TestNotification_Click" VerticalAlignment="Center" />
+                            </Grid>
+                        </Border>
+
+                        <TextBlock Text="Aparência" Style="{StaticResource SectionHeaderStyle}" />
+                        <Border Style="{StaticResource SettingsCardStyle}">
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                <FontIcon Glyph="&#xE790;" Style="{StaticResource SettingsIconStyle}" />
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Text="Tema" />
+                                    <TextBlock x:Name="ThemeStatus" Text="Escolha como o Team Reminder aparece neste computador." Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                                </StackPanel>
+                                <ComboBox x:Name="ThemePicker" Grid.Column="2" MinWidth="200" VerticalAlignment="Center" SelectionChanged="ThemePicker_SelectionChanged" AutomationProperties.Name="Tema">
+                                    <ComboBoxItem Content="Padrão do Windows" /><ComboBoxItem Content="Claro" /><ComboBoxItem Content="Escuro" />
+                                </ComboBox>
+                            </Grid>
+                        </Border>
+
+                        <TextBlock Text="Sistema" Style="{StaticResource SectionHeaderStyle}" />
+                        <Border Style="{StaticResource SettingsCardStyle}">
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                <FontIcon Glyph="&#xE7E8;" Style="{StaticResource SettingsIconStyle}" />
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Text="Iniciar com o Windows" />
+                                    <TextBlock x:Name="StartupStatus" Text="Ao entrar no Windows, o app fica na bandeja sem abrir a janela." Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                                </StackPanel>
+                                <ToggleSwitch x:Name="StartupToggle" Grid.Column="2" OnContent="Ativado" OffContent="Desativado" Toggled="StartupToggle_Toggled" MinWidth="0" AutomationProperties.Name="Iniciar com o Windows" />
+                            </Grid>
+                        </Border>
+                        <Border Style="{StaticResource SettingsCardStyle}">
+                            <Grid RowSpacing="8">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                                <FontIcon Glyph="&#xE895;" Style="{StaticResource SettingsIconStyle}" />
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Text="Atualizar automaticamente" />
+                                    <TextBlock x:Name="UpdateStatus" Text="Novas versões são conferidas pelo SHA-256 publicado e instaladas com o app na bandeja, longe de alarmes." Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                                </StackPanel>
+                                <ToggleSwitch x:Name="AutoUpdateToggle" Grid.Column="2" OnContent="Ativado" OffContent="Desativado" Toggled="AutoUpdateToggle_Toggled" MinWidth="0" AutomationProperties.Name="Atualizar automaticamente" />
+                                <StackPanel Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="8">
                                     <Button x:Name="CheckUpdateButton" Content="Verificar agora" Click="CheckUpdate_Click" />
                                     <Button x:Name="InstallUpdateButton" Content="Atualizar agora" Style="{StaticResource AccentButtonStyle}" Visibility="Collapsed" Click="InstallUpdate_Click" />
                                 </StackPanel>
-                                <TextBlock x:Name="UpdateStatus" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
-                                <TextBlock Text="Sobre os alarmes" Style="{StaticResource SubtitleTextBlockStyle}" />
-                                <TextBlock Text="Os alarmes ficam neste computador. Fechar a janela mantém o app na bandeja; Sair encerra os alarmes." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                            </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <TextBlock Text="Sobre" Style="{StaticResource SectionHeaderStyle}" />
+                        <Border Style="{StaticResource SettingsCardStyle}">
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                <FontIcon Glyph="&#xE946;" Style="{StaticResource SettingsIconStyle}" />
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock x:Name="UpdateVersion" Text="Team Reminder" />
+                                    <TextBlock Text="Os alarmes tocam neste computador. Fechar a janela mantém o app na bandeja; Sair, no menu da bandeja, encerra os alarmes." Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                                </StackPanel>
+                                <Button Grid.Column="2" Content="Abrir pasta de registros" Click="OpenLogs_Click" VerticalAlignment="Center" />
+                            </Grid>
                         </Border>
                     </StackPanel>
                 </ScrollViewer>
-            </TabViewItem>
-            <TabViewItem Header="Grupos" IsClosable="False">
-                <TabViewItem.IconSource><SymbolIconSource Symbol="People" /></TabViewItem.IconSource>
-                <local:GroupsControl x:Name="GroupsPanel" />
-            </TabViewItem>
-        </TabView>
+            </Grid>
+        </NavigationView>
     </Grid>
 </Window>

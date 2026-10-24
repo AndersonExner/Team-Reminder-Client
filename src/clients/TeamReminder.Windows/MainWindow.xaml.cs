@@ -1,5 +1,8 @@
+using Microsoft.UI;
+using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media.Imaging;
 using TeamReminder.Core;
 using TeamReminder.Local;
 
@@ -36,6 +39,8 @@ public sealed partial class MainWindow : Window
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "TeamReminder", "Settings", "advance-minutes.txt");
     private TrayIcon? tray;
+    private SnoozeScheduler? snooze;
+    private Func<Task>? sendTestNotification;
     private static readonly string ThemePath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "TeamReminder", "Settings", "theme.txt");
@@ -50,7 +55,7 @@ public sealed partial class MainWindow : Window
         {
             if (scopeChanged)
             {
-                AccountBadge.Text = ((AccountAlarmRepository)repository).Scope is null ? "Local" : "Minha conta";
+                UpdateAccountBadge();
                 while (viewModel.IsBusy) await Task.Delay(20);
                 currentEditor?.Hide();
                 viewModel.DismissAlertsCommand.Execute(null);
@@ -60,6 +65,7 @@ public sealed partial class MainWindow : Window
             await viewModel.LoadAsync();
         }, () => !dialogOpen && !viewModel.IsBusy);
         GroupsPanel.Configure(AccountPanel);
+        AccountPanel.SessionChanged += (_, _) => UpdateAccountBadge();
         viewModel.ConfigureGroupPublisher(new GroupAlarmPublisher(AccountPanel,(AccountAlarmRepository)repository));
         viewModel.LaunchLinkAsync = async uri => await global::Windows.System.Launcher.LaunchUriAsync(uri);
         DefaultSoundEditor.Configure(sounds, WinRT.Interop.WindowNative.GetWindowHandle(this), sounds.DefaultSound, allowDefault: false);
@@ -73,6 +79,11 @@ public sealed partial class MainWindow : Window
         }
         catch (IOException) { }
         catch (UnauthorizedAccessException) { }
+#if DEBUG
+        // UI checks can preview a theme without touching the saved preference.
+        if (Environment.GetEnvironmentVariable("TEAMREMINDER_TEST_DATA_FILE") is { Length: > 0 }
+            && Enum.TryParse<ElementTheme>(Environment.GetEnvironmentVariable("TEAMREMINDER_TEST_THEME"), out var preview)) theme = preview;
+#endif
         Root.RequestedTheme = theme;
         ThemePicker.SelectedIndex = (int)theme;
         themeReady = true;
@@ -98,10 +109,21 @@ public sealed partial class MainWindow : Window
         catch (UnauthorizedAccessException) { }
         AutoUpdateToggle.IsOn = autoUpdate;
         AutoUpdateToggle.IsEnabled = CheckUpdateButton.IsEnabled = AppUpdater.IsInstalled;
-        UpdateVersion.Text = $"Versão instalada: {AppUpdater.CurrentVersion}";
+        UpdateVersion.Text = $"Team Reminder {AppUpdater.CurrentVersion}";
+        // Development builds carry no release number, so they say so instead of showing 1.0.0.
+        TitleBarVersion.Text = AppUpdater.IsInstalled ? $"v{AppUpdater.CurrentVersion}" : "dev";
         if (!AppUpdater.IsInstalled) UpdateStatus.Text = "Atualização automática disponível apenas na versão instalada.";
         updatesReady = true;
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "app.ico"));
+        ExtendsContentIntoTitleBar = true;
+        SetTitleBar(AppTitleBar);
+        AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;
+        AppWindow.TitleBar.ButtonBackgroundColor = Colors.Transparent;
+        AppWindow.TitleBar.ButtonInactiveBackgroundColor = Colors.Transparent;
+        TitleBarIcon.Source = new BitmapImage(new Uri(Path.Combine(AppContext.BaseDirectory, "Assets", "app.ico")));
+        Root.ActualThemeChanged += (_, _) => UpdateCaptionButtons();
+        UpdateCaptionButtons();
+        Nav.Loaded += (_, _) => { if (Nav.SettingsItem is NavigationViewItem item) item.Content = "Configurações"; };
         AppWindow.Closing += (_, e) =>
         {
             if (exiting || tray is null) return;
@@ -109,7 +131,7 @@ public sealed partial class MainWindow : Window
             AppWindow.Hide();
         };
         viewModel.ConfirmDeleteAsync = ConfirmDeleteAsync;
-        AppWindow.Resize(new global::Windows.Graphics.SizeInt32(1160, 820));
+        AppWindow.Resize(new global::Windows.Graphics.SizeInt32(1180, 840));
         timer.Tick += async (_, _) =>
         {
             // Windows time zone changes are not observed by TimeZoneInfo.Local until its cache is cleared.
@@ -117,6 +139,11 @@ public sealed partial class MainWindow : Window
             viewModel.RefreshTime();
             await viewModel.ProcessDueAsync();
             await viewModel.ProcessEarlyAsync();
+            if (snooze is not null)
+            {
+                var errors = await snooze.TickAsync();
+                if (errors.Count > 0) viewModel.ReportMessage(string.Join(Environment.NewLine, errors));
+            }
             tray?.Update();
         };
         Closed += (_, _) => { AccountPanel.Shutdown(); DefaultSoundEditor.Dispose(); currentEditor?.DisposeSoundEditor(); timer.Stop(); tray?.Dispose(); tray = null; };
@@ -124,21 +151,165 @@ public sealed partial class MainWindow : Window
 
     public Task InitializeAccountAsync() => AccountPanel.StartAsync();
 
-    private async void MainTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private async void Nav_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
-        if (GroupsPanel is null) return;
-        GroupsPanel.IsActive = MainTabs.SelectedIndex == 2;
+        var page = args.IsSettingsSelected ? "settings" : (args.SelectedItem as NavigationViewItem)?.Tag as string ?? "home";
+        HomePage.Visibility = page == "home" ? Visibility.Visible : Visibility.Collapsed;
+        AlarmsPage.Visibility = page == "alarms" ? Visibility.Visible : Visibility.Collapsed;
+        GroupsPage.Visibility = page == "groups" ? Visibility.Visible : Visibility.Collapsed;
+        SettingsPage.Visibility = page == "settings" ? Visibility.Visible : Visibility.Collapsed;
+        GroupsPanel.IsActive = page == "groups";
         if (GroupsPanel.IsActive) await GroupsPanel.RefreshAsync();
     }
 
-    public void ConfigureEarlyReminders(IAlarmRepository repository, IEarlyReminderReceiptStore receipts, TimeProvider clock)
+    private void Navigate(string page) => Nav.SelectedItem = page switch
+    {
+        "alarms" => AlarmsItem, "groups" => GroupsItem, "settings" => Nav.SettingsItem, _ => HomeItem
+    };
+
+    private void ShowAlarms_Click(object sender, RoutedEventArgs e) => Navigate("alarms");
+
+    private void UpdateAccountBadge()
+    {
+        var name = AccountPanel.CurrentUserName;
+        AccountBadge.Text = name ?? "Local";
+        viewModel.UserName = name ?? "";
+    }
+
+    // Caption buttons sit on Mica, so their glyphs follow the app theme instead of the system default.
+    private void UpdateCaptionButtons()
+    {
+        var dark = Root.ActualTheme == ElementTheme.Dark;
+        var foreground = dark ? Colors.White : Colors.Black;
+        AppWindow.TitleBar.ButtonForegroundColor = foreground;
+        AppWindow.TitleBar.ButtonHoverForegroundColor = foreground;
+        AppWindow.TitleBar.ButtonHoverBackgroundColor = dark ? global::Windows.UI.Color.FromArgb(24, 255, 255, 255) : global::Windows.UI.Color.FromArgb(24, 0, 0, 0);
+        AppWindow.TitleBar.ButtonInactiveForegroundColor = dark ? Colors.Gray : Colors.DimGray;
+    }
+
+    public void ConfigureEarlyReminders(IAlarmRepository repository, IEarlyReminderReceiptStore receipts, TimeProvider clock,
+        Func<Alarm, int, bool> showNotification)
     {
         viewModel.ConfigureEarlyScheduler(new EarlyReminderScheduler(repository, receipts, alarm =>
         {
+            // A Windows notification when available; the tray balloon remains the fallback.
+            if (showNotification(alarm, advanceMinutes ?? 0)) return Task.CompletedTask;
             if (tray is null) throw new InvalidOperationException("Bandeja indisponível.");
             tray.ShowEarlyReminder(alarm);
             return Task.CompletedTask;
         }, () => advanceMinutes, clock));
+    }
+
+    public void ConfigureSnooze(SnoozeScheduler scheduler, Func<Task> testNotification)
+    {
+        snooze = scheduler;
+        sendTestNotification = testNotification;
+    }
+
+    // Called from the notification's Adiar button and from the in-app list of received alarms.
+    public async Task SnoozeAsync(Guid alarmId, DateTime occurrenceUtc, int minutes)
+    {
+        if (snooze is null) return;
+        try
+        {
+            var until = await snooze.SnoozeAsync(alarmId, occurrenceUtc, TimeSpan.FromMinutes(minutes));
+            var received = viewModel.ReceivedAlarms.FirstOrDefault(row => row.Alarm.Id == alarmId);
+            if (received is not null) viewModel.DismissAlert(received);
+            viewModel.ReportMessage($"Alarme adiado para {until.ToLocalTime():HH:mm}.");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentOutOfRangeException)
+        {
+            ErrorLog.Write(ex);
+            viewModel.ReportMessage("Não foi possível adiar o alarme. Tente novamente.");
+        }
+    }
+
+    private static AlarmRow? RowOf(object sender) => (sender as FrameworkElement)?.Tag as AlarmRow;
+
+    private void SnoozeReceived_Click(object sender, RoutedEventArgs e)
+    {
+        if (RowOf(sender) is not { } row) return;
+        var menu = new MenuFlyout();
+        foreach (var minutes in SnoozeScheduler.Options)
+        {
+            var item = new MenuFlyoutItem { Text = $"{minutes} minutos" };
+            item.Click += async (_, _) => await SnoozeAsync(row.Alarm.Id, row.OccurrenceUtc, minutes);
+            menu.Items.Add(item);
+        }
+        menu.ShowAt((FrameworkElement)sender);
+    }
+
+    private void DismissReceived_Click(object sender, RoutedEventArgs e)
+    {
+        if (RowOf(sender) is { } row) viewModel.DismissAlert(row);
+    }
+
+    private async void AlarmCard_DoubleTapped(object sender, Microsoft.UI.Xaml.Input.DoubleTappedRoutedEventArgs e)
+    {
+        if (RowOf(sender) is { CanManage: true } row) await EditRowAsync(row);
+    }
+
+    private async void EditRow_Click(object sender, RoutedEventArgs e)
+    {
+        if (RowOf(sender) is { } row) await EditRowAsync(row);
+    }
+
+    private async Task EditRowAsync(AlarmRow row)
+    {
+        viewModel.SelectedAlarm = viewModel.Alarms.FirstOrDefault(candidate => candidate.Alarm.Id == row.Alarm.Id);
+        if (viewModel.SelectedAlarm is not null) await ShowEditorAsync(edit: true);
+    }
+
+    private void AlarmMore_Click(object sender, RoutedEventArgs e)
+    {
+        if (RowOf(sender) is not { } row) return;
+        var menu = new MenuFlyout();
+        var edit = new MenuFlyoutItem { Text = "Editar", Icon = new FontIcon { Glyph = "\uE70F" }, IsEnabled = row.CanManage && viewModel.CanEdit };
+        edit.Click += async (_, _) => await EditRowAsync(row);
+        menu.Items.Add(edit);
+        if (row.HasLink)
+        {
+            var open = new MenuFlyoutItem { Text = row.ActionLabel, Icon = new FontIcon { Glyph = "\uE71B" } };
+            open.Click += async (_, _) => await viewModel.OpenActionAsync(row.Alarm);
+            menu.Items.Add(open);
+        }
+        menu.Items.Add(new MenuFlyoutSeparator());
+        var delete = new MenuFlyoutItem { Text = "Excluir", Icon = new FontIcon { Glyph = "\uE74D" }, IsEnabled = row.CanManage && viewModel.CanEdit };
+        delete.Click += async (_, _) =>
+        {
+            viewModel.SelectedAlarm = viewModel.Alarms.FirstOrDefault(candidate => candidate.Alarm.Id == row.Alarm.Id);
+            if (viewModel.SelectedAlarm is null) return;
+            await viewModel.DeleteSelectedAsync();
+            await CleanSoundsAsync();
+        };
+        menu.Items.Add(delete);
+        menu.ShowAt((FrameworkElement)sender);
+    }
+
+    private async void TestNotification_Click(object sender, RoutedEventArgs e)
+    {
+        if (sendTestNotification is null) return;
+        try
+        {
+            await sendTestNotification();
+            TestStatus.Text = "Teste enviado. O botão Adiar repete apenas alarmes reais.";
+        }
+        catch (Exception ex)
+        {
+            ErrorLog.Write(ex);
+            TestStatus.Text = "Não foi possível enviar o teste. Confira as notificações do Windows para o Team Reminder.";
+        }
+    }
+
+    private void OpenLogs_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var folder = Path.GetDirectoryName(ErrorLog.FilePath)!;
+            Directory.CreateDirectory(folder);
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", $"\"{folder}\"") { UseShellExecute = true });
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception) { ErrorLog.Write(ex); }
     }
 
     private void AdvancePicker_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -190,12 +361,6 @@ public sealed partial class MainWindow : Window
         if (sender is Button { Tag: AlarmRow row }) await viewModel.OpenActionAsync(row.Alarm);
     }
 
-    private async void DeleteAlarm_Click(object sender, RoutedEventArgs e)
-    {
-        await viewModel.DeleteSelectedAsync();
-        await CleanSoundsAsync();
-    }
-
     private async Task CleanSoundsAsync(IEnumerable<Guid>? releaseImports = null)
     {
         if (DefaultSoundEditor.IsBusy || dialogOpen) return;
@@ -217,7 +382,7 @@ public sealed partial class MainWindow : Window
             tray = new TrayIcon(viewModel,
                 () => DispatcherQueue.TryEnqueue(Restore),
                 () => DispatcherQueue.TryEnqueue(AddFromTray),
-                () => DispatcherQueue.TryEnqueue(() => { MainTabs.SelectedIndex = 1; Restore(); }),
+                () => DispatcherQueue.TryEnqueue(() => { Navigate("settings"); Restore(); }),
                 () => DispatcherQueue.TryEnqueue(() => { exiting = true; Close(); }));
             return true;
         }
@@ -237,13 +402,11 @@ public sealed partial class MainWindow : Window
 
     private async void AddFromTray()
     {
-        MainTabs.SelectedIndex = 0;
         Restore();
         await ShowEditorAsync(edit: false);
     }
 
     private async void NewAlarm_Click(object sender, RoutedEventArgs e) => await ShowEditorAsync(edit: false);
-    private async void EditAlarm_Click(object sender, RoutedEventArgs e) => await ShowEditorAsync(edit: true);
 
     private async Task ShowEditorAsync(bool edit)
     {
@@ -438,5 +601,10 @@ public sealed partial class MainWindow : Window
         await CleanSoundsAsync();
         await viewModel.ProcessDueAsync();
         timer.Start();
+#if DEBUG
+        // Lets UI checks open a given page (home, alarms, groups, settings) against isolated test data.
+        if (Environment.GetEnvironmentVariable("TEAMREMINDER_TEST_DATA_FILE") is { Length: > 0 }
+            && Environment.GetEnvironmentVariable("TEAMREMINDER_TEST_PAGE") is { Length: > 0 } page) Navigate(page);
+#endif
     }
 }

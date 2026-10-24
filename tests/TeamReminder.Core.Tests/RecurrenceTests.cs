@@ -32,6 +32,9 @@ public class RecurrenceTests
         Assert.Equal(Utc(10, 16), RecurrenceCalendar.NextAfter(alarm, Utc(10, 14)));
         Assert.Equal(Utc(10, 19), RecurrenceCalendar.NextAfter(alarm, Utc(10, 16)));
         Assert.Equal("Seg, Qua, Sex", RecurrenceCalendar.Describe(alarm.Recurrence, alarm.Days));
+        Assert.Equal("Dias úteis", RecurrenceCalendar.Describe(RecurrenceKind.Weekly, WeekDays.Monday | WeekDays.Tuesday | WeekDays.Wednesday | WeekDays.Thursday | WeekDays.Friday));
+        Assert.Equal("Fins de semana", RecurrenceCalendar.Describe(RecurrenceKind.Weekly, WeekDays.Saturday | WeekDays.Sunday));
+        Assert.Equal("Todos os dias", RecurrenceCalendar.Describe(RecurrenceKind.Weekly, WeekDays.All));
     }
 
     [Fact]

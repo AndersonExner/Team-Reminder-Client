@@ -5,65 +5,94 @@
     Title="{Binding FormTitle}" PrimaryButtonText="{Binding SaveLabel}" SecondaryButtonText="Cancelar"
     DefaultButton="Primary" IsPrimaryButtonEnabled="{Binding CanEdit}" IsSecondaryButtonEnabled="{Binding CanEdit}"
     PrimaryButtonClick="Save_Click" Closing="Dialog_Closing" Opened="Dialog_Opened">
-    <ContentDialog.Resources><x:Double x:Key="ContentDialogMaxWidth">640</x:Double></ContentDialog.Resources>
-    <ScrollViewer Background="{ThemeResource ContentDialogBackground}" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" MaxHeight="580" IsEnabled="{Binding CanEdit}">
-        <StackPanel Spacing="16" MinWidth="360" MaxWidth="560" Margin="0,0,24,0">
-            <TextBlock Text="Defina quem recebe e quando lembrar. O aviso sempre toca no computador de cada participante."
-                Margin="16,0" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-            <Border Padding="16" CornerRadius="10" Background="{ThemeResource ControlFillColorSecondaryBrush}">
-                <StackPanel Spacing="8">
-                    <TextBlock Text="Quem recebe" FontWeight="SemiBold" />
-                    <ComboBox ItemsSource="{Binding Destinations}" SelectedItem="{Binding Destination, Mode=TwoWay}"
-                        IsEnabled="{Binding CanChooseDestination}" HorizontalAlignment="Stretch" AutomationProperties.Name="Destinatário do alarme">
-                        <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Label}" TextWrapping="Wrap" /></DataTemplate></ComboBox.ItemTemplate>
-                    </ComboBox>
-                    <TextBlock Text="{Binding DestinationHint}" FontSize="12" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <TextBlock Text="{Binding GroupSelectionMessage}" FontSize="12" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                </StackPanel>
-            </Border>
-            <StackPanel Spacing="8" Margin="16,0">
-                <TextBlock Text="O que lembrar" FontWeight="SemiBold" />
-                <TextBox x:Name="AlarmTitle" PlaceholderText="Ex.: reunião da equipe ou registrar o ponto" MaxLength="120"
-                    AutomationProperties.Name="Título do alarme" Text="{Binding Title, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                <TextBlock Text="{Binding TitleError}" Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap" />
+    <ContentDialog.Resources>
+        <x:Double x:Key="ContentDialogMaxWidth">680</x:Double>
+        <Style x:Key="QuickButtonStyle" TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
+            <Setter Property="Padding" Value="10,4" />
+            <Setter Property="CornerRadius" Value="14" />
+        </Style>
+    </ContentDialog.Resources>
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" MaxHeight="620" IsEnabled="{Binding CanEdit}">
+        <StackPanel Spacing="20" MinWidth="420" MaxWidth="600" Margin="0,0,20,8">
+            <StackPanel Spacing="4">
+                <TextBox x:Name="AlarmTitle" Header="O que lembrar" PlaceholderText="Ex.: reunião da equipe ou registrar o ponto" MaxLength="120"
+                    FontSize="16" AutomationProperties.Name="Título do alarme" Text="{Binding Title, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBlock Text="{Binding TitleError}" Visibility="{Binding TitleError, Converter={StaticResource HasText}}" Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap" />
             </StackPanel>
-            <Border Padding="16" CornerRadius="10" Background="{ThemeResource ControlFillColorSecondaryBrush}">
-                <StackPanel Spacing="12">
-                    <TextBlock Text="Quando lembrar" FontWeight="SemiBold" />
-                    <Grid ColumnSpacing="12">
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                        <CalendarDatePicker Header="Data inicial" MinWidth="0" HorizontalAlignment="Stretch" Date="{Binding SelectedDate, Mode=TwoWay}" PlaceholderText="Selecione a data" />
-                        <TimePicker Grid.Column="1" Header="Horário" MinWidth="0" HorizontalAlignment="Stretch" ClockIdentifier="24HourClock" SelectedTime="{Binding SelectedTime, Mode=TwoWay}" />
-                    </Grid>
-                    <TextBlock Text="{Binding ScheduleError}" Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap" />
-                    <TextBlock Text="Repetição" />
-                    <ComboBox SelectedIndex="{Binding RecurrenceIndex, Mode=TwoWay}" HorizontalAlignment="Stretch">
-                        <ComboBoxItem Content="Uma vez" /><ComboBoxItem Content="Todos os dias" /><ComboBoxItem Content="Dias da semana" />
-                    </ComboBox>
-                    <ItemsControl ItemsSource="{Binding DayOptions}" Visibility="{Binding ShowWeekDays}">
-                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapGrid Orientation="Horizontal" MaximumRowsOrColumns="4" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate><DataTemplate><CheckBox Content="{Binding Label}" MinWidth="110" IsChecked="{Binding IsSelected, Mode=TwoWay}" /></DataTemplate></ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                    <TextBlock Text="{Binding RecurrenceError}" Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap" />
+
+            <StackPanel Spacing="10">
+                <TextBlock Text="Quando" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Style="{StaticResource QuickButtonStyle}" Tag="15" Click="Quick_Click" Content="Em 15 min" />
+                    <Button Style="{StaticResource QuickButtonStyle}" Tag="30" Click="Quick_Click" Content="Em 30 min" />
+                    <Button Style="{StaticResource QuickButtonStyle}" Tag="60" Click="Quick_Click" Content="Em 1 h" />
+                    <Button Style="{StaticResource QuickButtonStyle}" Tag="tomorrow" Click="Quick_Click" Content="Amanhã 9:00" />
                 </StackPanel>
-            </Border>
-            <Expander Header="Link de ação (opcional)" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
-                <StackPanel Spacing="10">
-                    <TextBox Header="Endereço" PlaceholderText="https://..." MaxLength="2048" Text="{Binding ActionUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                    <TextBox Header="Texto do botão" PlaceholderText="Abrir link" MaxLength="40" Text="{Binding ActionLabel, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                    <TextBlock Text="O link abre somente quando você clicar na notificação." FontSize="12" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <TextBlock Text="{Binding ActionError}" Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap" />
-                </StackPanel>
-            </Expander>
-            <Expander Header="Som do alarme" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
-                <local:SoundPickerControl x:Name="SoundEditor" />
-            </Expander>
-            <TextBlock Margin="16,0" Text="{Binding Sound.Label}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
-            <TextBlock Margin="16,0" Text="{Binding SoundError}" Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap" />
-            <TextBlock Margin="16,0" Text="{Binding ActionError}" Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap" />
-            <TextBlock Margin="16,0" Text="Para um aviso único, escolha uma data e horário futuros. Alarmes de grupo seguem o mesmo instante em todos os computadores."
-                FontSize="12" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-            <TextBlock Margin="16,0" Text="{Binding Message}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                    <CalendarDatePicker Header="Data" MinWidth="0" HorizontalAlignment="Stretch" Date="{Binding SelectedDate, Mode=TwoWay}" PlaceholderText="Selecione a data" />
+                    <TimePicker Grid.Column="1" Header="Horário" MinWidth="0" HorizontalAlignment="Stretch" ClockIdentifier="24HourClock" SelectedTime="{Binding SelectedTime, Mode=TwoWay}" />
+                </Grid>
+                <TextBlock Text="{Binding ScheduleError}" Visibility="{Binding ScheduleError, Converter={StaticResource HasText}}" Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap" />
+                <RadioButtons Header="Repetir" MaxColumns="3" SelectedIndex="{Binding RecurrenceIndex, Mode=TwoWay}">
+                    <x:String>Uma vez</x:String>
+                    <x:String>Todos os dias</x:String>
+                    <x:String>Dias da semana</x:String>
+                </RadioButtons>
+                <ItemsControl ItemsSource="{Binding DayOptions}" Visibility="{Binding ShowWeekDays, Converter={StaticResource Visible}}">
+                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="6" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate><DataTemplate>
+                        <ToggleButton Content="{Binding ShortLabel}" IsChecked="{Binding IsSelected, Mode=TwoWay}" MinWidth="64" CornerRadius="14"
+                            ToolTipService.ToolTip="{Binding Label}" AutomationProperties.Name="{Binding Label}" />
+                    </DataTemplate></ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Text="{Binding RecurrenceError}" Visibility="{Binding RecurrenceError, Converter={StaticResource HasText}}" Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap" />
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+                <TextBlock Text="Quem recebe" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                <ComboBox ItemsSource="{Binding Destinations}" SelectedItem="{Binding Destination, Mode=TwoWay}"
+                    IsEnabled="{Binding CanChooseDestination}" HorizontalAlignment="Stretch" AutomationProperties.Name="Destinatário do alarme">
+                    <ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Label}" TextWrapping="Wrap" /></DataTemplate></ComboBox.ItemTemplate>
+                </ComboBox>
+                <TextBlock Text="{Binding DestinationHint}" Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                <TextBlock Text="{Binding GroupSelectionMessage}" Visibility="{Binding GroupSelectionMessage, Converter={StaticResource HasText}}" Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            </StackPanel>
+
+            <StackPanel Spacing="4">
+                <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                    <Expander.Header>
+                        <StackPanel Orientation="Horizontal" Spacing="12" Padding="0,10">
+                            <FontIcon Glyph="&#xE71B;" FontSize="16" />
+                            <TextBlock Text="Link de ação (opcional)" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Expander.Header>
+                    <StackPanel Spacing="10">
+                        <TextBox Header="Endereço" PlaceholderText="https://..." MaxLength="2048" Text="{Binding ActionUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBox Header="Texto do botão" PlaceholderText="Abrir link" MaxLength="40" Text="{Binding ActionLabel, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBlock Text="O link abre somente quando você clicar no botão da notificação ou do alarme." Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock Text="{Binding ActionError}" Visibility="{Binding ActionError, Converter={StaticResource HasText}}" Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Expander>
+                <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                    <Expander.Header>
+                        <Grid Padding="0,8" ColumnSpacing="12">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE767;" FontSize="16" />
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="Som do alarme" />
+                                <TextBlock Text="{Binding Sound.Label}" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Grid>
+                    </Expander.Header>
+                    <local:SoundPickerControl x:Name="SoundEditor" />
+                </Expander>
+                <TextBlock Text="{Binding SoundError}" Visibility="{Binding SoundError, Converter={StaticResource HasText}}" Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap" />
+            </StackPanel>
+
+            <TextBlock Text="Para um aviso único, escolha uma data e horário futuros. Alarmes de grupo tocam no mesmo instante em todos os computadores."
+                Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <TextBlock Text="{Binding Message}" Visibility="{Binding Message, Converter={StaticResource HasText}}" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
         </StackPanel>
     </ScrollViewer>
 </ContentDialog>

@@ -7,13 +7,17 @@ public sealed class WindowsAlarmNotifier(Action<AlarmDelivery> reportAlert,
     Action<string> reportStatus, Action activateWindow, AlarmSoundPlayer soundPlayer) : IAlarmNotifier, IDisposable
 {
     private bool registered;
+    // Raised on a notification thread when the person picks Adiar; the app marshals it to the UI.
+    public event Action<Guid, DateTime, int>? SnoozeRequested;
 
     public void Initialize()
     {
         try
         {
             AppNotificationManager.Default.NotificationInvoked += OnNotificationInvoked;
-            AppNotificationManager.Default.Register();
+            // Unpackaged apps otherwise show the executable name ("TeamReminder") as the notification header.
+            try { AppNotificationManager.Default.Register("Team Reminder", new Uri(Path.Combine(AppContext.BaseDirectory, "Assets", "app.ico"))); }
+            catch (ArgumentException) { AppNotificationManager.Default.Register(); }
             registered = true;
         }
         catch (Exception)
@@ -22,7 +26,26 @@ public sealed class WindowsAlarmNotifier(Action<AlarmDelivery> reportAlert,
         }
     }
 
-    private void OnNotificationInvoked(AppNotificationManager sender, AppNotificationActivatedEventArgs args) => activateWindow();
+    private void OnNotificationInvoked(AppNotificationManager sender, AppNotificationActivatedEventArgs args) => Handle(args);
+
+    public void Handle(AppNotificationActivatedEventArgs args)
+    {
+        if (AlarmNotificationXml.TryParseSnooze(args.Argument, args.UserInput, out var id, out var occurrence, out var minutes))
+            SnoozeRequested?.Invoke(id, occurrence, minutes);
+        else activateWindow();
+    }
+
+    public bool ShowEarlyReminder(Alarm alarm, int minutes)
+    {
+        if (!registered) return false;
+        try
+        {
+            var notification = new AppNotification(AlarmNotificationXml.BuildEarly(alarm, minutes));
+            AppNotificationManager.Default.Show(notification);
+            return notification.Id != 0;
+        }
+        catch (Exception) { return false; }
+    }
 
     public async Task NotifyAsync(AlarmDelivery delivery)
     {

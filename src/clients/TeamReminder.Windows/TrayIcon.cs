@@ -19,6 +19,9 @@ internal sealed class TrayIcon : IDisposable
         icon = new Forms.NotifyIcon { Icon = artwork, Text = "Team Reminder", ContextMenuStrip = menu };
         try
         {
+            menu.Font = new System.Drawing.Font("Segoe UI", 9.5f);
+            menu.ShowImageMargin = false;
+            menu.Padding = new Forms.Padding(0, 4, 0, 4);
             menu.Opening += (_, _) => RebuildMenu();
             icon.MouseClick += (_, e) =>
             {
@@ -64,17 +67,28 @@ internal sealed class TrayIcon : IDisposable
     {
         foreach (Forms.ToolStripItem item in menu.Items.Cast<Forms.ToolStripItem>().ToArray()) item.Dispose();
         menu.Items.Clear();
-        menu.Items.Add("Próximos alarmes").Enabled = false;
+        // Follows the taskbar theme each time it opens, so a theme change needs no restart.
+        menu.Renderer = new TrayMenuRenderer(TrayMenuRenderer.SystemUsesDarkTheme());
+        TrayMenuRenderer.RoundCorners(menu);
+        var header = new Forms.ToolStripMenuItem("Próximos alarmes") { Enabled = false };
+        header.Font = new System.Drawing.Font(menu.Font, System.Drawing.FontStyle.Bold);
+        Add(header);
         var next = Upcoming();
-        if (next.Length == 0) menu.Items.Add("Nenhum alarme agendado").Enabled = false;
+        if (next.Length == 0) Add(new Forms.ToolStripMenuItem("Nenhum alarme agendado") { Enabled = false });
         foreach (var row in next)
-            menu.Items.Add($"{row.Alarm.DueAtUtc!.Value.ToLocalTime():dd/MM HH:mm} — {ShortTitle(row.Title, 48)}", null, (_, _) => open());
+            Add(new Forms.ToolStripMenuItem($"{row.DayText} {row.TimeText}   {ShortTitle(row.Title, 44)}", null, (_, _) => open()));
         menu.Items.Add(new Forms.ToolStripSeparator());
-        menu.Items.Add("Adicionar alarme", null, (_, _) => add());
-        menu.Items.Add("Abrir Team Reminder", null, (_, _) => open());
-        menu.Items.Add("Configurações", null, (_, _) => settings());
+        Add(new Forms.ToolStripMenuItem("Novo alarme", null, (_, _) => add()));
+        Add(new Forms.ToolStripMenuItem("Abrir Team Reminder", null, (_, _) => open()));
+        Add(new Forms.ToolStripMenuItem("Configurações", null, (_, _) => settings()));
         menu.Items.Add(new Forms.ToolStripSeparator());
-        menu.Items.Add("Sair (encerrar alarmes)", null, (_, _) => exit());
+        Add(new Forms.ToolStripMenuItem("Sair (encerrar alarmes)", null, (_, _) => exit()));
+    }
+
+    private void Add(Forms.ToolStripMenuItem item)
+    {
+        item.Padding = new Forms.Padding(8, 6, 16, 6);
+        menu.Items.Add(item);
     }
 
     public void Dispose()

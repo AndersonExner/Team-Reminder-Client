@@ -22,6 +22,7 @@ public sealed partial class AccountControl : UserControl
     public event EventHandler? SessionChanged;
     public bool HasSession => session is not null;
     public Guid? CurrentAccountId => session?.User.Id;
+    public string? CurrentUserName => session?.User.Name;
 
     // Group operations share the authentication path with alarm sync, preventing concurrent token rotation.
     public async Task<T> ExecuteAuthenticatedAsync<T>(Func<AuthClient, string, Task<T>> operation, bool deferInvalidation = false)

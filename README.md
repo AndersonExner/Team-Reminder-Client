@@ -8,7 +8,20 @@ Criar, listar, editar e excluir alarmes locais; emitir som e aviso no horário e
 repetir uma vez, todos os dias ou em dias da semana selecionados.
 Novo alarme abre um modal com data e hora atuais. Editar usa o mesmo modal com os dados salvos.
 
-Abas Alarmes e Configurações organizam o aplicativo. Em Configurações > Aparência,
+A partir da 0.6.0, a interface segue o estilo do Windows 11: fundo Mica, barra de título integrada e
+navegação lateral com **Início** (saudação, próximo alarme em destaque, números do dia e alarmes de hoje),
+**Alarmes** (cartões agrupados em Hoje, Amanhã, Próximos 7 dias, Mais tarde e Já disparados, com busca e
+menu de ações por alarme), **Grupos** e **Configurações** (cartões por seção: Conta, Notificações,
+Aparência, Sistema e Sobre). O editor oferece atalhos (Em 15 min, Em 30 min, Em 1 h, Amanhã 9:00), repetição
+por botões de opção e dias da semana como chips.
+
+As notificações de alarme usam o modo alarme do Windows: ficam na tela até serem adiadas ou dispensadas,
+com seletor de 5, 10 ou 15 minutos e o botão do link, quando houver. Alarmes adiados são guardados em
+%LOCALAPPDATA%\TeamReminder\Settings\snoozes.json e tocam novamente mesmo depois de reiniciar o app; o
+alarme recebido na tela Início também pode ser adiado. Configurações > Notificações > Testar notificação
+envia um exemplo.
+
+Em Configurações > Aparência,
 escolha Claro, Escuro ou Padrão do Windows. Claro é o padrão sem preferência válida; escolhas salvas são respeitadas. A preferência fica em %LOCALAPPDATA%\TeamReminder\Settings\theme.txt. O cadastro fica em um modal com rolagem.
 
 Build x64 verificado e 99 testes aprovados. Um disparo real no executável Windows
@@ -35,7 +48,7 @@ Encerre pelo menu Sair da bandeja antes de compilar novamente, para evitar DLLs 
 
 Em **Configurações > Minha conta**, entre com e-mail e senha ou ative **Criar uma nova conta** para informar nome, e-mail, senha e confirmação. O cadastro já conecta a conta. A senha deve ter de 10 a 128 caracteres. Sem login, o aplicativo usa os alarmes locais originais; com login, usa o cache separado da conta. Ao sair, os alarmes da conta ficam preservados para o próximo login e o aplicativo volta aos alarmes locais.
 
-A API é desenvolvida no repositório `E:\ProjetosPessoais\Team-Reminder-Server`. Inicie o Docker Compose daquele repositório antes de testar cadastro e login. O endereço local padrão é `http://localhost:5080/`. Para outra instalação, configure `TEAMREMINDER_API_URL` antes de abrir o aplicativo:
+A API é desenvolvida no repositório `E:\ProjetosPessoais\Team-Reminder-Server`. Inicie o Docker Compose daquele repositório antes de testar cadastro e login. Por padrão, inclusive em Debug, o aplicativo usa a API hospedada (`https://team-reminder-api.onrender.com/`). Para usar a API local (`http://localhost:5080/`) ou outra instalação, configure `TEAMREMINDER_API_URL` antes de abrir o aplicativo:
 
 ```powershell
 $env:TEAMREMINDER_API_URL = 'https://seu-servidor.example.com/'
@@ -55,7 +68,7 @@ HTTP é aceito somente em loopback. A sessão é salva em `%LOCALAPPDATA%\TeamRe
 - Próxima ocorrência e registro de disparo são locais a cada dispositivo. Atualizar apenas título/link/som não repete uma ocorrência já concluída nesse computador. Cada computador ativo pode notificar a mesma ocorrência; não há eleição de dispositivo único.
 - Um alarme recebido pela primeira vez com atraso superior a cinco minutos fica no histórico sem disparar; recorrentes recebidos com data inicial passada avançam à próxima ocorrência futura. Alarmes já em cache mantêm o comportamento de atraso existente.
 - Sons personalizados e seus arquivos ficam no computador. No servidor, usam o padrão do aplicativo; outro computador recebe o som padrão. O arquivo personalizado existente permanece aplicado no dispositivo de origem.
-- A API limita cada conta a 1000 alarmes ativos; exclusões mantidas para sincronização não contam para esse limite. A gestão de grupos está disponível na aba Grupos; alarmes compartilhados, organizações e sincronização de arquivos de áudio ficam para as próximas etapas.
+- A API limita cada conta a 1000 alarmes ativos; exclusões mantidas para sincronização não contam para esse limite. A gestão de grupos está disponível na página Grupos; alarmes compartilhados, organizações e sincronização de arquivos de áudio ficam para as próximas etapas.
 
 Validação desta etapa: 112 testes do núcleo e 43 testes de armazenamento local, além do fluxo entre dois caches usando a API e PostgreSQL reais. A inspeção visual completa da interface ainda está pendente.
 
@@ -291,7 +304,8 @@ Em Configurações > Lembrete antecipado, escolha Desativado, 5, 10, 15, 30 ou 6
 A preferência vale para todos os alarmes deste computador e fica em
 %LOCALAPPDATA%/TeamReminder/Settings/advance-minutes.txt. Padrão: Desativado.
 Exemplo: alarme 15:30 com 10 minutos de antecedência solicita aviso às 15:20.
-O popup da bandeja mostra título/horário, fecha automaticamente e abre o app ao clicar.
+O aviso é uma notificação do Windows com título, horário, botão do link e Abrir Team Reminder; sem
+notificações disponíveis, o balão da bandeja é usado como alternativa.
 Windows controla duração, apresentação e sons do sistema; o pré-aviso não toca o som próprio do alarme.
 
 Recibos na coleção earlyReminderReceipts da mesma instância LiteDB evitam repetir uma ocorrência
