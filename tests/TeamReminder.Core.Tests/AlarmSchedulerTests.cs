@@ -152,6 +152,59 @@ public class AlarmSchedulerTests
         Assert.True(vm.HasAlerts);
         Assert.Equal("Disparado", Assert.Single(vm.Alarms).Status);
     }
+
+    [Fact]
+    public async Task ChangedRecordWithSameOccurrenceIsNotDeliveredAgain()
+    {
+        var repo = new MemoryRepository { FailComplete = true };
+        var alarm = Sample();
+        repo.Alarms.Add(alarm);
+        var notifier = new RecordingNotifier();
+        var scheduler = new AlarmScheduler(repo, notifier, new FixedClock(Now));
+        await scheduler.TickAsync();
+        repo.Alarms[0] = alarm with { GroupName = "Renomeado" };
+        await scheduler.TickAsync();
+        Assert.Single(notifier.Deliveries);
+    }
+
+    [Fact]
+    public async Task AlarmFiresWhileDeleteConfirmationIsOpen()
+    {
+        var clock = new FixedClock(Now);
+        var repo = new MemoryRepository();
+        repo.Alarms.AddRange([Sample(Now.AddHours(1)), Sample()]);
+        var vm = new AlarmsViewModel(new AlarmService(repo, clock), clock, () => TimeZoneInfo.Utc);
+        var notifier = new RecordingNotifier();
+        vm.ConfigureScheduler(new AlarmScheduler(repo, notifier, clock));
+        var confirmation = new TaskCompletionSource<bool>();
+        vm.ConfirmDeleteAsync = _ => confirmation.Task;
+        await vm.LoadAsync();
+        vm.SelectedAlarm = vm.Alarms.Single(row => row.Alarm.DueAtUtc > Now);
+        var deleting = vm.DeleteSelectedAsync();
+        Assert.True(vm.IsBusy);
+        await vm.ProcessDueAsync();
+        Assert.Single(notifier.Deliveries);
+        confirmation.SetResult(false);
+        await deleting;
+        await vm.ProcessDueAsync();
+        Assert.Contains(vm.Alarms, row => row.Status == "Disparado");
+    }
+
+    [Fact]
+    public async Task AlarmFiresEvenWhenInitialLoadFailed()
+    {
+        var clock = new FixedClock(Now);
+        var repo = new MemoryRepository { FailRead = true };
+        repo.Alarms.Add(Sample());
+        var vm = new AlarmsViewModel(new AlarmService(repo, clock), clock, () => TimeZoneInfo.Utc);
+        var notifier = new RecordingNotifier();
+        vm.ConfigureScheduler(new AlarmScheduler(repo, notifier, clock));
+        await vm.LoadAsync();
+        Assert.False(vm.CanEdit);
+        repo.FailRead = false;
+        await vm.ProcessDueAsync();
+        Assert.Single(notifier.Deliveries);
+    }
 }
 
 internal sealed class RecordingNotifier : IAlarmNotifier

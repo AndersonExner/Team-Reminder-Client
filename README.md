@@ -55,7 +55,7 @@ HTTP é aceito somente em loopback. A sessão é salva em `%LOCALAPPDATA%\TeamRe
 - Próxima ocorrência e registro de disparo são locais a cada dispositivo. Atualizar apenas título/link/som não repete uma ocorrência já concluída nesse computador. Cada computador ativo pode notificar a mesma ocorrência; não há eleição de dispositivo único.
 - Um alarme recebido pela primeira vez com atraso superior a cinco minutos fica no histórico sem disparar; recorrentes recebidos com data inicial passada avançam à próxima ocorrência futura. Alarmes já em cache mantêm o comportamento de atraso existente.
 - Sons personalizados e seus arquivos ficam no computador. No servidor, usam o padrão do aplicativo; outro computador recebe o som padrão. O arquivo personalizado existente permanece aplicado no dispositivo de origem.
-- A API limita cada conta a 1000 registros, incluindo exclusões mantidas para sincronização. A gestão de grupos está disponível na aba Grupos; alarmes compartilhados, organizações e sincronização de arquivos de áudio ficam para as próximas etapas.
+- A API limita cada conta a 1000 alarmes ativos; exclusões mantidas para sincronização não contam para esse limite. A gestão de grupos está disponível na aba Grupos; alarmes compartilhados, organizações e sincronização de arquivos de áudio ficam para as próximas etapas.
 
 Validação desta etapa: 112 testes do núcleo e 43 testes de armazenamento local, além do fluxo entre dois caches usando a API e PostgreSQL reais. A inspeção visual completa da interface ainda está pendente.
 

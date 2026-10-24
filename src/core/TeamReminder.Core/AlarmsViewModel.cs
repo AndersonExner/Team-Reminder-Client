@@ -83,7 +83,7 @@ public sealed class AlarmsViewModel : ObservableObject
             Destinations.Add(new(group.Id,group.Name));
         Destination=Destinations.First();
     }
-    private bool busy, loaded;
+    private bool busy, loaded, rowsStale;
     private RecurrenceKind recurrence;
     private AlarmSound sound = AlarmSound.Default;
     private string actionUrl = "", actionLabel = "", actionError = "";
@@ -371,37 +371,43 @@ public sealed class AlarmsViewModel : ObservableObject
         Notify(nameof(EmptyMessage));
     }
 
+    // Delivery never waits for the form: the schedulers read storage directly and guard their own concurrency,
+    // and the repository rejects completing an occurrence whose alarm changed meanwhile.
     public async Task ProcessDueAsync()
     {
-        if (!CanEdit || scheduler is null ||
-            !Alarms.Any(row => row.Alarm.DueAtUtc is { } due && due <= clock.GetUtcNow().UtcDateTime)) return;
-        SetBusy(true);
+        if (scheduler is null) return;
         try
         {
             var result = await scheduler.TickAsync();
-            if (result is null) return;
-            ReplaceRows(result.Alarms);
-            if (editingAlarm is not null)
-                editingAlarm = result.Alarms.FirstOrDefault(a => a.Id == editingAlarm.Id) ?? editingAlarm;
-            if (result.Errors.Count > 0) Message = string.Join(Environment.NewLine, result.Errors);
+            if (result is not null)
+            {
+                if (result.Errors.Count > 0) Message = string.Join(Environment.NewLine, result.Errors);
+                rowsStale = true;
+            }
+            // While a form operation runs, it owns the list; refresh it on a later tick.
+            if (rowsStale && loaded && !busy)
+            {
+                rowsStale = false;
+                var alarms = result?.Alarms ?? await service.ListAsync();
+                ReplaceRows(alarms);
+                if (editingAlarm is not null)
+                    editingAlarm = alarms.FirstOrDefault(a => a.Id == editingAlarm.Id) ?? editingAlarm;
+            }
         }
         catch (Exception)
         {
             Message = "Não foi possível verificar os alarmes. Uma nova tentativa será feita.";
         }
-        finally { SetBusy(false); }
     }
     public async Task ProcessEarlyAsync()
     {
-        if (!CanEdit || earlyScheduler is null || !earlyScheduler.ShouldCheck(Alarms.Select(row => row.Alarm))) return;
-        SetBusy(true);
+        if (earlyScheduler is null) return;
         try
         {
             var errors = await earlyScheduler.TickAsync();
             if (errors.Count > 0) Message = string.Join(Environment.NewLine, errors);
         }
         catch (Exception) { Message = "Não foi possível verificar os lembretes antecipados. Uma nova tentativa será feita."; }
-        finally { SetBusy(false); }
     }
 
     public void RefreshTime() { foreach (var row in Alarms) row.Refresh(); }
