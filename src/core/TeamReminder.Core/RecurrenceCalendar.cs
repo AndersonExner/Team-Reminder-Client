@@ -38,9 +38,20 @@ public static class RecurrenceCalendar
     public static DateTime? NextAfter(Alarm alarm, DateTime nowUtc)
     {
         if (alarm.Recurrence == RecurrenceKind.Once) return null;
-        var zone = TimeZoneInfo.FindSystemTimeZoneById(alarm.TimeZoneId);
+        var zone = ResolveZone(alarm.TimeZoneId);
         var start = TimeZoneInfo.ConvertTimeFromUtc(alarm.ScheduledAtUtc, zone);
         return FirstAfter(start, zone, alarm.Recurrence, alarm.Days, nowUtc);
+    }
+
+    // Synced and group alarms may carry a zone id this machine does not know (IANA vs Windows, or removed zones).
+    // Falling back keeps the alarm firing instead of failing on every tick.
+    public static TimeZoneInfo ResolveZone(string? id)
+    {
+        if (string.IsNullOrWhiteSpace(id)) return TimeZoneInfo.Local;
+        if (TimeZoneInfo.TryFindSystemTimeZoneById(id, out var zone)) return zone;
+        if (TimeZoneInfo.TryConvertIanaIdToWindowsId(id, out var windowsId) && TimeZoneInfo.TryFindSystemTimeZoneById(windowsId, out zone)) return zone;
+        if (TimeZoneInfo.TryConvertWindowsIdToIanaId(id, out var ianaId) && TimeZoneInfo.TryFindSystemTimeZoneById(ianaId, out zone)) return zone;
+        return TimeZoneInfo.Local;
     }
 
     public static string Describe(RecurrenceKind recurrence, WeekDays days) => recurrence switch

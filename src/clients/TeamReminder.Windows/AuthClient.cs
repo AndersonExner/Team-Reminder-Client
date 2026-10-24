@@ -96,7 +96,7 @@ public sealed class AuthClient(HttpClient http)
                 HttpStatusCode.NotFound => "O grupo ou convite não está mais disponível. Atualize a lista.",
                 _ => "O servidor não conseguiu concluir a solicitação. Tente novamente."
             };
-            if (path.StartsWith("api/groups", StringComparison.Ordinal) || path.StartsWith("api/invitations", StringComparison.Ordinal))
+            if (response.StatusCode != HttpStatusCode.Unauthorized)
             {
                 try
                 {

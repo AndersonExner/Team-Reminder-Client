@@ -26,7 +26,7 @@ public sealed class LocalSoundLibrary(string localRoot)
     public async Task SaveDefaultAsync(AlarmSound sound)
     {
         sound.Validate();
-        if (sound.Kind == AlarmSoundKind.Default) throw new ArgumentException("O padrÃ£o nÃ£o pode referenciar a si prÃ³prio.");
+        if (sound.Kind == AlarmSoundKind.Default) throw new ArgumentException("O padrão não pode referenciar a si próprio.");
         Directory.CreateDirectory(Path.GetDirectoryName(settingsPath)!);
         var temp = settingsPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
         try
@@ -61,7 +61,7 @@ public sealed class LocalSoundLibrary(string localRoot)
         {
             await using (var source = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, true))
             {
-                if (source.Length is <= 0 or > MaxBytes) throw new InvalidDataException("O Ã¡udio deve ter conteÃºdo e atÃ© 20 MiB.");
+                if (source.Length is <= 0 or > MaxBytes) throw new InvalidDataException("O áudio deve ter conteúdo e até 20 MiB.");
                 await using var target = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81920, true);
                 var buffer = new byte[81920];
                 long copied = 0;
@@ -69,7 +69,7 @@ public sealed class LocalSoundLibrary(string localRoot)
                 while ((count = await source.ReadAsync(buffer)) > 0)
                 {
                     copied += count;
-                    if (copied > MaxBytes) throw new InvalidDataException("O Ã¡udio deve ter atÃ© 20 MiB.");
+                    if (copied > MaxBytes) throw new InvalidDataException("O áudio deve ter até 20 MiB.");
                     await target.WriteAsync(buffer.AsMemory(0, count));
                 }
             }

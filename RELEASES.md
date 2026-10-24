@@ -11,4 +11,6 @@ A página da API consulta a última release estável pública e oferece /downloa
 
 Instalação por usuário em Windows 10 2004 ou superior, x64. A assinatura digital do instalador não está configurada.
 
-As releases incluem release.json com versão, data e endereço do instalador. O servidor lê esse asset público pela URL releases/latest/download/release.json, evitando limites da API anônima do GitHub em IPs compartilhados.
+Erros inesperados do aplicativo são registrados em %LOCALAPPDATA%\TeamReminder\Logs\errors.log.
+
+As releases incluem release.json com versão, data, endereço e SHA-256 do instalador, além do arquivo .sha256 para conferência (Get-FileHash). O servidor lê esse asset público pela URL releases/latest/download/release.json, evitando limites da API anônima do GitHub em IPs compartilhados.

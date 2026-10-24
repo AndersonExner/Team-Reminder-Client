@@ -66,6 +66,17 @@ public class RecurrenceTests
     }
 
     [Fact]
+    public void UnknownOrForeignZoneIdsStillProduceNextOccurrence()
+    {
+        Assert.Equal(TimeZoneInfo.Local.Id, RecurrenceCalendar.ResolveZone("Mars/Olympus_Mons").Id);
+        Assert.Equal(TimeZoneInfo.Local.Id, RecurrenceCalendar.ResolveZone(null).Id);
+        Assert.Equal(TimeSpan.FromHours(-3), RecurrenceCalendar.ResolveZone("America/Sao_Paulo").GetUtcOffset(new DateTime(2026, 6, 1)));
+        var scheduled = new DateTime(2026, 3, 7, 12, 0, 0, DateTimeKind.Utc);
+        var alarm = new Alarm(Guid.NewGuid(), "Daily", scheduled, scheduled.AddDays(-1), "Mars/Olympus_Mons") { Recurrence = RecurrenceKind.Daily };
+        Assert.NotNull(RecurrenceCalendar.NextAfter(alarm, scheduled));
+    }
+
+    [Fact]
     public void DailySkipsNonexistentLocalTimeAtSpringTransition()
     {
         var zone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
