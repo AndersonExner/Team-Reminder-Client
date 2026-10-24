@@ -17,7 +17,7 @@
                     <TextBox x:Name="NameInput" Header="Nome" MaxLength="100" Visibility="Collapsed" />
                     <TextBox x:Name="EmailInput" Header="E-mail" MaxLength="254" InputScope="EmailSmtpAddress" />
                     <PasswordBox x:Name="PasswordInput" Header="Senha" MaxLength="128" />
-                    <TextBlock x:Name="PasswordHint" Text="Use uma senha de 10 a 128 caracteres." Visibility="Collapsed" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock x:Name="PasswordHint" Text="Use uma senha de 6 a 128 caracteres." Visibility="Collapsed" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <PasswordBox x:Name="ConfirmInput" Header="Confirmar senha" MaxLength="128" Visibility="Collapsed" />
                     <Button x:Name="SubmitButton" Content="Entrar" Click="Submit_Click" Style="{StaticResource AccentButtonStyle}" MinWidth="120" />
                 </StackPanel>
