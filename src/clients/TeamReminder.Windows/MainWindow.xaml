@@ -127,6 +127,15 @@
                                 <ToggleSwitch x:Name="StartupToggle" Header="Iniciar com o Windows" OnContent="Ativado" OffContent="Desativado" Toggled="StartupToggle_Toggled" />
                                 <TextBlock Text="Ao entrar no Windows, o aplicativo fica na bandeja sem abrir a janela." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                 <TextBlock x:Name="StartupStatus" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+                                <TextBlock Text="Atualizações" Style="{StaticResource SubtitleTextBlockStyle}" />
+                                <ToggleSwitch x:Name="AutoUpdateToggle" Header="Atualizar automaticamente" OnContent="Ativado" OffContent="Desativado" Toggled="AutoUpdateToggle_Toggled" />
+                                <TextBlock Text="Novas versões são baixadas, conferidas pelo SHA-256 publicado e instaladas quando o app está na bandeja e nenhum alarme está próximo." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <TextBlock x:Name="UpdateVersion" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Button x:Name="CheckUpdateButton" Content="Verificar agora" Click="CheckUpdate_Click" />
+                                    <Button x:Name="InstallUpdateButton" Content="Atualizar agora" Style="{StaticResource AccentButtonStyle}" Visibility="Collapsed" Click="InstallUpdate_Click" />
+                                </StackPanel>
+                                <TextBlock x:Name="UpdateStatus" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
                                 <TextBlock Text="Sobre os alarmes" Style="{StaticResource SubtitleTextBlockStyle}" />
                                 <TextBlock Text="Os alarmes ficam neste computador. Fechar a janela mantém o app na bandeja; Sair encerra os alarmes." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             </StackPanel>
