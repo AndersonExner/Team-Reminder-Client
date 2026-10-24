@@ -19,6 +19,6 @@ As releases incluem release.json com versão, data, endereço e SHA-256 do insta
 
 A partir da 0.5.0, a versão instalada consulta releases/latest/download/release.json dois minutos após iniciar e a cada seis horas. Uma versão estável mais nova, baixada de releases/download deste repositório, só é aceita se o SHA-256 conferir com o publicado no manifesto. O instalador fica em %LOCALAPPDATA%\TeamReminder\Updates.
 
-A instalação silenciosa (/VERYSILENT) acontece sozinha apenas com o app na bandeja, sem edição em andamento e sem alarme nos próximos 10 minutos; o app reabre na bandeja ao terminar. Com a janela aberta, Configurações → Atualizações mostra Atualizar agora. A opção pode ser desligada na mesma seção. Builds de desenvolvimento, sem unins000.exe, não se atualizam.
+A instalação silenciosa (/VERYSILENT) acontece sozinha apenas com o app na bandeja, sem edição em andamento e sem alarme nos próximos 10 minutos; o app reabre na bandeja ao terminar. Com a janela aberta, Configurações → Sistema mostra Atualizar agora. A opção pode ser desligada na mesma seção. Builds de desenvolvimento, sem unins000.exe, não se atualizam.
 
 O instalador não é assinado: quem publica uma release neste repositório distribui código para todos os clientes. Mantenha 2FA na conta e restrinja a criação de tags v*.

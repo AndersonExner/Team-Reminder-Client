@@ -55,6 +55,7 @@ public sealed partial class GroupsControl : UserControl
         var owner = details?.Group.MyRole == GroupRole.Owner;
         var member = MembersList.SelectedItem as GroupMemberResponse;
         LoginHint.Visibility = connected ? Visibility.Collapsed : Visibility.Visible;
+        ConnectedContent.Visibility = connected ? Visibility.Visible : Visibility.Collapsed;
         CreateButton.IsEnabled = RefreshButton.IsEnabled = GroupList.IsEnabled = IncomingList.IsEnabled = enabled;
         MembersList.IsEnabled = OutgoingList.IsEnabled = enabled;
         AcceptButton.IsEnabled = DeclineButton.IsEnabled = enabled && IncomingList.SelectedItem is GroupInvitationResponse;

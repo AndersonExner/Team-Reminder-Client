@@ -1,6 +1,6 @@
 namespace TeamReminder.Core;
 
-public sealed record AlarmDelivery(Alarm Alarm, DateTime OccurrenceUtc, bool IsLate);
+public sealed record AlarmDelivery(Alarm Alarm, DateTime OccurrenceUtc, bool IsLate, bool IsSnoozed = false);
 
 public interface IAlarmNotifier
 {

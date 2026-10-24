@@ -86,7 +86,16 @@ public partial class App : Application
             () => window.DispatcherQueue.TryEnqueue(window.Restore), soundPlayer);
         viewModel.ConfigureScheduler(new AlarmScheduler(repository, notifier, clock));
         notifier.Initialize();
-        window.ConfigureEarlyReminders(repository, repository, clock);
+        window.ConfigureEarlyReminders(repository, repository, clock, notifier.ShowEarlyReminder);
+        var snooze = new SnoozeScheduler(repository, new SnoozeFileStore(), notifier, clock);
+        notifier.SnoozeRequested += (id, occurrence, minutes) =>
+            window.DispatcherQueue.TryEnqueue(async () => await window.SnoozeAsync(id, occurrence, minutes));
+        window.ConfigureSnooze(snooze, () =>
+        {
+            var now = clock.GetUtcNow().UtcDateTime;
+            var sample = new Alarm(Guid.NewGuid(), "Alarme de teste do Team Reminder", now, now, TimeZoneInfo.Local.Id);
+            return notifier.NotifyAsync(new AlarmDelivery(sample, now, false));
+        });
         await window.InitializeAccountAsync();
         window.Closed += (_, _) =>
         {
@@ -102,12 +111,26 @@ public partial class App : Application
         if (!startInTray || !trayAvailable) window.Activate();
         await window.StartAsync();
         _ = ListenForActivationAsync("TeamReminder.Activation." + sid, activationCancellation.Token);
+        try
+        {
+            var activation = Microsoft.Windows.AppLifecycle.AppInstance.GetCurrent().GetActivatedEventArgs();
+            if (activation.Kind == Microsoft.Windows.AppLifecycle.ExtendedActivationKind.AppNotification
+                && activation.Data is Microsoft.Windows.AppNotifications.AppNotificationActivatedEventArgs toast)
+                notifier.Handle(toast);
+        }
+        catch (Exception ex) { ErrorLog.Write(ex); }
 #if DEBUG
         var editorReport=Environment.GetEnvironmentVariable("TEAMREMINDER_TEST_EDITOR_REPORT");
         if(!string.IsNullOrEmpty(editorReport)&&!string.IsNullOrEmpty(Environment.GetEnvironmentVariable("TEAMREMINDER_TEST_DATA_FILE")))
         {
             await EditorSmokeProbe.RunAsync(window,viewModel,sounds,editorReport);
             Exit();return;
+        }
+        var toastReport = Environment.GetEnvironmentVariable("TEAMREMINDER_TEST_TOAST_REPORT");
+        if (!string.IsNullOrEmpty(toastReport) && !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("TEAMREMINDER_TEST_DATA_FILE")))
+        {
+            await ToastSmokeProbe.RunAsync(toastReport);
+            Exit(); return;
         }
         var audioReport = Environment.GetEnvironmentVariable("TEAMREMINDER_TEST_AUDIO_REPORT");
         if (!string.IsNullOrEmpty(audioReport) && !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("TEAMREMINDER_TEST_DATA_FILE")))

@@ -54,10 +54,15 @@ public static class RecurrenceCalendar
         return TimeZoneInfo.Local;
     }
 
+    private const WeekDays Weekdays = WeekDays.Monday | WeekDays.Tuesday | WeekDays.Wednesday | WeekDays.Thursday | WeekDays.Friday;
+
     public static string Describe(RecurrenceKind recurrence, WeekDays days) => recurrence switch
     {
         RecurrenceKind.Once => "Uma vez",
         RecurrenceKind.Daily => "Todos os dias",
+        _ when days == WeekDays.All => "Todos os dias",
+        _ when days == Weekdays => "Dias úteis",
+        _ when days == (WeekDays.Saturday | WeekDays.Sunday) => "Fins de semana",
         _ => string.Join(", ", new[]
         {
             (WeekDays.Monday, "Seg"), (WeekDays.Tuesday, "Ter"), (WeekDays.Wednesday, "Qua"),
