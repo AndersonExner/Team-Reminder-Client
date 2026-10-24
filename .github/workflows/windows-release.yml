@@ -23,6 +23,8 @@ jobs:
           "APP_VERSION=$($Matches[1])" >> $env:GITHUB_ENV
       - name: Test client contracts
         run: dotnet test tests/TeamReminder.Core.Tests -c Release
+      - name: Test local storage
+        run: dotnet test tests/TeamReminder.Local.Tests -c Release
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y
       - name: Build installer
@@ -36,6 +38,8 @@ jobs:
         run: |
           $installer = "artifacts/installer/TeamReminder-Setup-$env:APP_VERSION-x64.exe"
           if (!(Test-Path -LiteralPath $installer)) { throw 'Instalador ausente.' }
+          $sha256 = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash.ToLowerInvariant()
+          [IO.File]::WriteAllText("$installer.sha256", "$sha256  TeamReminder-Setup-$env:APP_VERSION-x64.exe")
           $manifest = @{
             tag_name = $env:RELEASE_TAG
             published_at = [DateTimeOffset]::UtcNow.ToString("o")
@@ -44,8 +48,9 @@ jobs:
             assets = @(@{
               name = "TeamReminder-Setup-$env:APP_VERSION-x64.exe"
               browser_download_url = "https://github.com/AndersonExner/Team-Reminder-Client/releases/download/$env:RELEASE_TAG/TeamReminder-Setup-$env:APP_VERSION-x64.exe"
+              sha256 = $sha256
             })
           } | ConvertTo-Json -Depth 5
           [IO.File]::WriteAllText("release.json", $manifest)
-          gh release create "$env:RELEASE_TAG" "$installer" release.json --verify-tag --title "Team Reminder $env:APP_VERSION" --generate-notes
+          gh release create "$env:RELEASE_TAG" "$installer" "$installer.sha256" release.json --verify-tag --title "Team Reminder $env:APP_VERSION" --generate-notes
           if ($LASTEXITCODE -ne 0) { throw 'Falha ao publicar release.' }

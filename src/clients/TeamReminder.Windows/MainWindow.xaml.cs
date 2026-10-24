@@ -19,6 +19,7 @@ public sealed partial class MainWindow : Window
     private bool dialogOpen;
     private bool editorPreparing;
     private bool advanceReady;
+    private int ticks;
     private int? advanceMinutes;
     private static readonly int?[] AdvanceOptions = [null, 5, 10, 15, 30, 60];
     private static readonly string AdvancePath = Path.Combine(
@@ -89,6 +90,8 @@ public sealed partial class MainWindow : Window
         AppWindow.Resize(new global::Windows.Graphics.SizeInt32(1160, 820));
         timer.Tick += async (_, _) =>
         {
+            // Windows time zone changes are not observed by TimeZoneInfo.Local until its cache is cleared.
+            if (++ticks % 60 == 0) TimeZoneInfo.ClearCachedData();
             viewModel.RefreshTime();
             await viewModel.ProcessDueAsync();
             await viewModel.ProcessEarlyAsync();
@@ -315,7 +318,7 @@ public sealed partial class MainWindow : Window
             XamlRoot = Root.XamlRoot,
             RequestedTheme = Root.RequestedTheme,
             Title = "Excluir alarme?",
-            Content = (alarm.GroupId is null ? "" : $"Este alarme será excluído para todos os participantes de {alarm.GroupName}.\\n\\n") + $"{alarm.Title}\n{(alarm.DueAtUtc ?? alarm.ScheduledAtUtc).ToLocalTime():dd/MM/yyyy HH:mm}\n\nEsta exclusão não pode ser desfeita.",
+            Content = (alarm.GroupId is null ? "" : $"Este alarme será excluído para todos os participantes de {alarm.GroupName}.\n\n") + $"{alarm.Title}\n{(alarm.DueAtUtc ?? alarm.ScheduledAtUtc).ToLocalTime():dd/MM/yyyy HH:mm}\n\nEsta exclusão não pode ser desfeita.",
             PrimaryButtonText = "Excluir",
             CloseButtonText = "Cancelar",
             DefaultButton = ContentDialogButton.Close

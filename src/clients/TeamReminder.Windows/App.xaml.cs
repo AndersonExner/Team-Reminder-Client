@@ -13,9 +13,27 @@ public partial class App : Application
     private AlarmSoundPlayer? soundPlayer;
     private readonly CancellationTokenSource activationCancellation = new();
 
-    public App() => InitializeComponent();
+    public App()
+    {
+        InitializeComponent();
+        // Keep the process (and its alarms) alive after an unexpected UI error, and leave a trace to diagnose it.
+        UnhandledException += (_, e) => { ErrorLog.Write(e.Exception); e.Handled = true; };
+        TaskScheduler.UnobservedTaskException += (_, e) => { ErrorLog.Write(e.Exception); e.SetObserved(); };
+        AppDomain.CurrentDomain.UnhandledException += (_, e) => ErrorLog.Write(e.ExceptionObject as Exception);
+    }
 
     protected override async void OnLaunched(LaunchActivatedEventArgs args)
+    {
+        try { await LaunchAsync(); }
+        catch (Exception ex)
+        {
+            ErrorLog.Write(ex);
+            // Without a window there is nothing left running; exit instead of lingering invisibly in the tray.
+            if (window is null) Exit();
+        }
+    }
+
+    private async Task LaunchAsync()
     {
         // SID keeps the mutex isolated per Windows account, including multiple sessions.
         var sid = System.Security.Principal.WindowsIdentity.GetCurrent().User!.Value;

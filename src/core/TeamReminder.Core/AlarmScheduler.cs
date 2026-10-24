@@ -12,7 +12,8 @@ public sealed record AlarmTickResult(IReadOnlyList<Alarm> Alarms, IReadOnlyList<
 public sealed class AlarmScheduler(IAlarmRepository repository, IAlarmNotifier notifier, TimeProvider clock)
 {
     private readonly SemaphoreSlim gate = new(1, 1);
-    private readonly HashSet<Alarm> notified = [];
+    // Keyed by occurrence, not by record: a sync or group refresh that touches other fields must not notify again.
+    private readonly HashSet<(Guid Id, DateTime Due)> notified = [];
 
     public async Task<AlarmTickResult?> TickAsync()
     {
@@ -20,19 +21,21 @@ public sealed class AlarmScheduler(IAlarmRepository repository, IAlarmNotifier n
         try
         {
             var alarms = await repository.ListAsync();
-            notified.RemoveWhere(alarm => !alarms.Contains(alarm));
+            notified.RemoveWhere(key => !alarms.Any(a => a.Id == key.Id && a.DueAtUtc == key.Due));
+            var dueAlarms = alarms.Where(a => a.DueAtUtc is { } due && due <= clock.GetUtcNow().UtcDateTime).ToArray();
+            if (dueAlarms.Length == 0) return null;
             var errors = new List<string>();
-            foreach (var alarm in alarms.Where(a => a.DueAtUtc is { } due && due <= clock.GetUtcNow().UtcDateTime))
+            foreach (var alarm in dueAlarms)
             {
                 try
                 {
                     var due = alarm.DueAtUtc!.Value;
                     var next = RecurrenceCalendar.NextAfter(alarm, clock.GetUtcNow().UtcDateTime);
-                    if (!notified.Contains(alarm))
+                    if (!notified.Contains((alarm.Id, due)))
                     {
                         await notifier.NotifyAsync(new AlarmDelivery(alarm, due,
                             clock.GetUtcNow().UtcDateTime - due > TimeSpan.FromMinutes(1)));
-                        notified.Add(alarm);
+                        notified.Add((alarm.Id, due));
                     }
                     // A changed/deleted alarm must never be overwritten by an old delivery.
                     await repository.CompleteOccurrenceAsync(alarm, next);
