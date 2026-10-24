@@ -110,6 +110,8 @@ public sealed partial class MainWindow : Window
         AutoUpdateToggle.IsOn = autoUpdate;
         AutoUpdateToggle.IsEnabled = CheckUpdateButton.IsEnabled = AppUpdater.IsInstalled;
         UpdateVersion.Text = $"Team Reminder {AppUpdater.CurrentVersion}";
+        // Development builds carry no release number, so they say so instead of showing 1.0.0.
+        TitleBarVersion.Text = AppUpdater.IsInstalled ? $"v{AppUpdater.CurrentVersion}" : "dev";
         if (!AppUpdater.IsInstalled) UpdateStatus.Text = "Atualização automática disponível apenas na versão instalada.";
         updatesReady = true;
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "app.ico"));
