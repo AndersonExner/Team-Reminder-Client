@@ -21,11 +21,8 @@ public sealed class AuthClientTests
     [Fact]
     public void AllowsLocalDevelopmentAndHttps()
     {
-        #if DEBUG
-        Assert.Equal("http://localhost:5080/", AuthClient.ServerAddress(null).AbsoluteUri);
-#else
         Assert.Equal("https://team-reminder-api.onrender.com/", AuthClient.ServerAddress(null).AbsoluteUri);
-#endif
+        Assert.Equal("http://localhost:5080/", AuthClient.ServerAddress("http://localhost:5080").AbsoluteUri);
         Assert.Equal("https://example.com/", AuthClient.ServerAddress("https://example.com").AbsoluteUri);
     }
 

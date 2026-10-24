@@ -1,6 +1,6 @@
 # Distribuição Windows
 
-Builds Release usam https://team-reminder-api.onrender.com/ por padrão; Debug usa localhost:5080. TEAMREMINDER_API_URL permite substituir o endereço.
+Builds Release e Debug usam https://team-reminder-api.onrender.com/ por padrão. Para a API local, defina TEAMREMINDER_API_URL=http://localhost:5080/.
 
 Para gerar um instalador local: ./scripts/Build-Installer.ps1 -Version 0.2.0
 Requer .NET SDK 10, ferramentas WinUI e Inno Setup 6.

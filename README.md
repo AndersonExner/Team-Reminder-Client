@@ -48,7 +48,7 @@ Encerre pelo menu Sair da bandeja antes de compilar novamente, para evitar DLLs 
 
 Em **Configurações > Minha conta**, entre com e-mail e senha ou ative **Criar uma nova conta** para informar nome, e-mail, senha e confirmação. O cadastro já conecta a conta. A senha deve ter de 10 a 128 caracteres. Sem login, o aplicativo usa os alarmes locais originais; com login, usa o cache separado da conta. Ao sair, os alarmes da conta ficam preservados para o próximo login e o aplicativo volta aos alarmes locais.
 
-A API é desenvolvida no repositório `E:\ProjetosPessoais\Team-Reminder-Server`. Inicie o Docker Compose daquele repositório antes de testar cadastro e login. O endereço local padrão é `http://localhost:5080/`. Para outra instalação, configure `TEAMREMINDER_API_URL` antes de abrir o aplicativo:
+A API é desenvolvida no repositório `E:\ProjetosPessoais\Team-Reminder-Server`. Inicie o Docker Compose daquele repositório antes de testar cadastro e login. Por padrão, inclusive em Debug, o aplicativo usa a API hospedada (`https://team-reminder-api.onrender.com/`). Para usar a API local (`http://localhost:5080/`) ou outra instalação, configure `TEAMREMINDER_API_URL` antes de abrir o aplicativo:
 
 ```powershell
 $env:TEAMREMINDER_API_URL = 'https://seu-servidor.example.com/'
