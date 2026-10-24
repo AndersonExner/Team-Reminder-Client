@@ -77,9 +77,9 @@ public sealed class AuthClientTests
     {
         using var http = new HttpClient(new Handler(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.BadRequest)
         {
-            Content = JsonContent.Create(new { errors = new { password = new[] { "Use uma senha de 10 a 128 caracteres." } } })
+            Content = JsonContent.Create(new { errors = new { password = new[] { "Use uma senha de 6 a 128 caracteres." } } })
         }))) { BaseAddress = AuthClient.ServerAddress(null) };
         var error = await Assert.ThrowsAsync<AccountApiException>(() => new AuthClient(http).RegisterAsync("User", "user@example.com", "short"));
-        Assert.Contains("10 a 128", error.Message);
+        Assert.Contains("6 a 128", error.Message);
     }
 }
